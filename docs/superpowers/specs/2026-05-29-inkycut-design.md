@@ -16,7 +16,7 @@ Inkycut is an AI-native video-creation web app built around an infinite canvas. 
 | Database | PostgreSQL (hosted on DigitalOcean) |
 | Auth | NextAuth.js v5 — Google OAuth only, no passwords |
 | Real-time | Socket.io attached to the custom server |
-| AI | OpenAI GPT-4o with function calling, streaming |
+| AI | OpenAI GPT-4o with function calling + streaming; `gpt-image-2` for new image generation |
 | Video export | Mediabunny (browser-side, Chrome desktop only) |
 | File storage | Local disk (dev) / S3-compatible e.g. DO Spaces (prod) |
 | Deployment | DigitalOcean VPS (persistent process, not serverless) |
@@ -51,6 +51,7 @@ Both `inky.css` (shared system) and page-specific CSS are always linked in that 
 | `/api/auth/[...nextauth]` | — | NextAuth Google OAuth handler |
 | `/api/chat` | Required | Streaming OpenAI endpoint with tool calls |
 | `/api/upload` | Required | File upload (multipart, local or S3) |
+| `/api/generate-image` | Required | Generate a new image with `gpt-image-2`, store it, and return an image URL |
 | `/api/socket` | — | Socket.io HTTP upgrade endpoint |
 
 Unauthenticated requests to auth-required routes redirect to `/login`. After login, redirect to `/dashboard`.
@@ -235,8 +236,11 @@ create_element(type, x, y, w, h?, data)  // spawns a new node
 update_element(id, patch)                // updates fields on an existing node
 delete_element(id)                       // removes a node
 connect_elements(fromId, toId)           // creates a directed edge between frames
+generate_image(elementId, prompt)         // creates a new image with gpt-image-2 and attaches it to a frame/character
 list_elements()                          // returns current canvas element summary
 ```
+
+When the user asks for a new image, the AI must use `generate_image`; it must not invent placeholder URLs. Generated images are persisted through the same storage adapter as uploads and stored in `elements.data.imageUrl`.
 
 **Execution flow:**
 1. Stream starts → text chunks sent to client via SSE
@@ -270,6 +274,8 @@ list_elements()                          // returns current canvas element summa
 ## File Upload
 
 **Endpoint:** `POST /api/upload` — multipart/form-data
+
+**Image generation endpoint:** `POST /api/generate-image` — JSON `{ elementId, prompt }`; uses OpenAI `gpt-image-2`, stores the generated PNG via the storage adapter, updates `elements.data.imageUrl`, and returns `{ url }`.
 
 **Validation:** JPEG, PNG, WebP, GIF only. Max 20MB.
 

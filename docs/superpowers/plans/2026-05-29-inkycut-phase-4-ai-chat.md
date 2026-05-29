@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Streaming OpenAI GPT-4o chat with function calling. AI can create, update, delete, and connect canvas elements. Chat panel becomes fully interactive.
+**Goal:** Streaming OpenAI GPT-4o chat with function calling. AI can create, update, delete, and connect canvas elements. Chat panel becomes fully interactive. New-image generation is added in Phase 6 after storage exists, using `gpt-image-2`.
 
 **Depends on:** Phase 3 complete.
 
@@ -246,7 +246,9 @@ ${summary || "(empty canvas)"}
 
 You can create, update, and connect canvas elements using the provided tools. When you create a frame, use descriptive slugs (e.g. EST_SHOT, CHAR_01, INT_NIGHT). Use the hues: slate, rain, amber, crimson, forest. Default frame width is 300, character width is 340, storyboard width is 380.
 
-Be concise and decisive. After using tools, briefly describe what you did. Never ask for confirmation before taking canvas actions — just do it.`
+Be concise and decisive. After using tools, briefly describe what you did. Never ask for confirmation before taking canvas actions — just do it.
+
+If the user asks for a new image, create or identify the relevant frame/character node first and explain that image generation will be available once the Phase 6 image-generation tool is installed. Do not invent image URLs.`
 }
 ```
 

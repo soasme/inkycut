@@ -6,7 +6,7 @@
 
 **Architecture:** Next.js 14 App Router with a custom `server.ts` that attaches Socket.io to the same HTTP port. Drizzle ORM + PostgreSQL for persistence. NextAuth v5 for Google OAuth. Canvas state lives in Zustand on the client; all mutations flow through REST API routes then broadcast via Socket.io.
 
-**Tech Stack:** Next.js 14, TypeScript, Drizzle ORM, PostgreSQL, NextAuth v5, OpenAI SDK (GPT-4o + function calling), Socket.io 4, Zustand, Mediabunny, AWS SDK v3 (S3), Jest + React Testing Library
+**Tech Stack:** Next.js 14, TypeScript, Drizzle ORM, PostgreSQL, NextAuth v5, OpenAI SDK (GPT-4o + function calling, `gpt-image-2` image generation), Socket.io 4, Zustand, Mediabunny, AWS SDK v3 (S3), Jest + React Testing Library
 
 **Spec:** `docs/superpowers/specs/2026-05-29-inkycut-design.md`
 
@@ -21,7 +21,7 @@
 | 3 | [phase-3-canvas.md](./2026-05-29-inkycut-phase-3-canvas.md) | Infinite canvas, all node types, toolbar, canvas persistence (autosave) |
 | 4 | [phase-4-ai-chat.md](./2026-05-29-inkycut-phase-4-ai-chat.md) | Chat panel UI, OpenAI streaming + tool calls, canvas tool executor |
 | 5 | [phase-5-realtime.md](./2026-05-29-inkycut-phase-5-realtime.md) | Custom server.ts + Socket.io, real-time element sync, presence + live cursors |
-| 6 | [phase-6-upload.md](./2026-05-29-inkycut-phase-6-upload.md) | File upload API, local/S3 storage adapter, ImageSlot component |
+| 6 | [phase-6-upload.md](./2026-05-29-inkycut-phase-6-upload.md) | File upload API, local/S3 storage adapter, ImageSlot component, GPT image generation |
 | 7 | [phase-7-ideas.md](./2026-05-29-inkycut-phase-7-ideas.md) | Ideas gallery page, publish-to-gallery flow |
 | 8 | [phase-8-video.md](./2026-05-29-inkycut-phase-8-video.md) | Frame connection edges, chain discovery, Mediabunny export modal |
 
@@ -80,6 +80,8 @@ inkycut/
 │   │       │   └── route.ts           # POST streaming chat + tool calls (Phase 4)
 │   │       ├── upload/
 │   │       │   └── route.ts           # POST file upload (Phase 6)
+│   │       ├── generate-image/
+│   │       │   └── route.ts           # POST gpt-image-2 generation (Phase 6)
 │   │       └── ideas/
 │   │           ├── route.ts           # GET published ideas (Phase 7)
 │   │           └── [id]/
@@ -133,6 +135,7 @@ inkycut/
 │   │   ├── auth.ts                    # NextAuth config (Phase 1)
 │   │   ├── openai.ts                  # OpenAI client + tool schemas (Phase 4)
 │   │   ├── canvas-tools.ts            # Tool call executor (Phase 4)
+│   │   ├── image-generation.ts        # GPT image generation helper (Phase 6)
 │   │   ├── socket.ts                  # Socket.io server singleton (Phase 5)
 │   │   └── storage.ts                 # File storage adapter (Phase 6)
 │   ├── hooks/

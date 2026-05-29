@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** File upload API with local disk (dev) / S3-compatible (prod) adapter. `ImageSlot` React component replaces the `.frame` placeholder when a real image is attached to a frame node. Users can drag-and-drop or click to upload an image on any frame node.
+**Goal:** File upload API with local disk (dev) / S3-compatible (prod) adapter. `ImageSlot` React component replaces the `.frame` placeholder when a real image is attached to a frame node. Users can drag-and-drop or click to upload an image on any frame node. AI-generated images use OpenAI `gpt-image-2`, then persist through the same storage adapter.
 
 **Depends on:** Phase 5 complete.
 
@@ -390,6 +390,232 @@ git commit -m "feat: add ImageSlot component and image upload for frame nodes"
 
 ---
 
+## Task 29: GPT image generation for new-image requests
+
+**Files:**
+- Create: `src/lib/image-generation.ts`
+- Create: `src/app/api/generate-image/route.ts`
+- Modify: `src/lib/openai.ts`
+- Modify: `src/lib/canvas-tools.ts`
+- Test: `src/__tests__/lib/image-generation.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+// src/__tests__/lib/image-generation.test.ts
+import { buildImagePrompt, decodeGeneratedImage } from "@/lib/image-generation"
+
+describe("image generation helpers", () => {
+  it("buildImagePrompt includes user prompt and visual constraints", () => {
+    const prompt = buildImagePrompt("wide shot of a rainy alley")
+    expect(prompt).toContain("wide shot of a rainy alley")
+    expect(prompt).toContain("cinematic")
+  })
+
+  it("decodeGeneratedImage decodes base64 PNG bytes", () => {
+    const buffer = decodeGeneratedImage(Buffer.from("png-bytes").toString("base64"))
+    expect(buffer.toString()).toBe("png-bytes")
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+```bash
+npx jest src/__tests__/lib/image-generation.test.ts
+```
+
+Expected: FAIL
+
+- [ ] **Step 3: Add the image model constant to `src/lib/openai.ts`**
+
+```ts
+export const IMAGE_MODEL = "gpt-image-2"
+```
+
+- [ ] **Step 4: Write `src/lib/image-generation.ts`**
+
+```ts
+import { openai, IMAGE_MODEL } from "@/lib/openai"
+import { uploadFile } from "@/lib/storage"
+import { getProjectById } from "@/lib/db/queries/projects"
+import { updateElement } from "@/lib/db/queries/elements"
+import { db } from "@/lib/db"
+import { elements } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
+
+export function buildImagePrompt(prompt: string) {
+  return [
+    "Create a cinematic production image for an Inkycut video canvas.",
+    "Avoid text, watermarks, UI chrome, logos, or captions.",
+    prompt.trim(),
+  ].join("\n")
+}
+
+export function decodeGeneratedImage(b64: string) {
+  return Buffer.from(b64, "base64")
+}
+
+export async function generateImageForElement(input: {
+  userId: string
+  projectId: string
+  elementId: string
+  prompt: string
+}) {
+  const project = await getProjectById(input.projectId, input.userId)
+  if (!project) throw new Error("Project not found")
+
+  const [element] = await db.select().from(elements).where(eq(elements.id, input.elementId)).limit(1)
+  if (!element || element.projectId !== input.projectId) throw new Error("Element not found")
+  if (!["frame", "character"].includes(element.type)) throw new Error("Images can only attach to frame or character elements")
+
+  const response = await openai.images.generate({
+    model: IMAGE_MODEL,
+    prompt: buildImagePrompt(input.prompt),
+    size: "1536x1024",
+  })
+  const b64 = response.data?.[0]?.b64_json
+  if (!b64) throw new Error("Image generation returned no image data")
+
+  const url = await uploadFile(decodeGeneratedImage(b64), "image/png")
+  const data = { ...(element.data as Record<string, unknown>), imageUrl: url }
+  const updated = await updateElement(input.elementId, input.projectId, { data })
+  return { url, element: updated }
+}
+```
+
+- [ ] **Step 5: Add `src/app/api/generate-image/route.ts`**
+
+```ts
+import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
+import { generateImageForElement } from "@/lib/image-generation"
+import { broadcastToProject } from "@/lib/socket"
+
+export async function POST(req: Request) {
+  const session = await auth()
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { projectId, elementId, prompt } = await req.json()
+  if (!projectId || !elementId || !prompt?.trim()) {
+    return NextResponse.json({ error: "projectId, elementId, and prompt required" }, { status: 400 })
+  }
+
+  try {
+    const result = await generateImageForElement({
+      userId: session.user.id,
+      projectId,
+      elementId,
+      prompt,
+    })
+    try {
+      broadcastToProject(projectId, "element:updated", { elementId, patch: { data: result.element?.data } })
+    } catch {}
+    return NextResponse.json(result)
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Image generation failed" }, { status: 400 })
+  }
+}
+```
+
+- [ ] **Step 6: Add a `generate_image` tool to `src/lib/openai.ts`**
+
+Add this to `CANVAS_TOOLS`:
+
+```ts
+{
+  type: "function",
+  function: {
+    name: "generate_image",
+    description: "Generate a new image with gpt-image-2 and attach it to a frame or character element. Use this whenever the user asks for a new image.",
+    parameters: {
+      type: "object",
+      properties: {
+        elementId: { type: "string", description: "Frame or character element ID that should receive the image" },
+        prompt: { type: "string", description: "Detailed visual prompt for the new image" },
+      },
+      required: ["elementId", "prompt"],
+    },
+  },
+}
+```
+
+Update `buildSystemPrompt` with:
+
+```ts
+If the user asks for a new image, use generate_image with gpt-image-2. Attach the result to the relevant frame or character. Do not invent image URLs.
+```
+
+- [ ] **Step 7: Update `src/lib/canvas-tools.ts` to execute `generate_image`**
+
+Add import:
+
+```ts
+import { generateImageForElement } from "@/lib/image-generation"
+```
+
+Add `generate_image` to `KNOWN_TOOLS`:
+
+```ts
+const KNOWN_TOOLS = new Set(["create_element", "update_element", "delete_element", "connect_elements", "list_elements", "generate_image"])
+```
+
+Add `userId` to the `executeToolCall` signature:
+
+```ts
+export async function executeToolCall(
+  name: string,
+  args: Record<string, unknown>,
+  projectId: string,
+  userId: string
+): Promise<{ result: unknown; elementMutation?: { action: string; element?: unknown; id?: string } }> {
+```
+
+Add this case inside the existing `switch`:
+
+```ts
+case "generate_image": {
+  const generated = await generateImageForElement({
+    userId,
+    projectId,
+    elementId: args.elementId as string,
+    prompt: args.prompt as string,
+  })
+  return { result: { url: generated.url }, elementMutation: { action: "updated", element: generated.element } }
+}
+```
+
+Update `src/app/api/chat/route.ts` so tool execution passes the authenticated user id:
+
+```ts
+const { result, elementMutation } = await executeToolCall(tc.name, args, projectId, session.user.id)
+```
+
+- [ ] **Step 8: Run tests to verify they pass**
+
+```bash
+npx jest src/__tests__/lib/image-generation.test.ts src/__tests__/lib/canvas-tools.test.ts
+```
+
+Expected: PASS
+
+- [ ] **Step 9: Verify image generation manually**
+
+With `tsx server.ts` and a real `OPENAI_API_KEY`:
+
+1. Open a project canvas and add a frame node
+2. Ask the chat: "Generate a new image for this frame: rainy neon alley, wide establishing shot"
+3. Verify the chat calls `generate_image`, the frame's `imageUrl` is updated, and the generated image persists after refresh
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/lib/openai.ts src/lib/canvas-tools.ts src/lib/image-generation.ts src/app/api/generate-image/ src/__tests__/lib/image-generation.test.ts
+git commit -m "feat: add gpt-image-2 image generation for canvas nodes"
+```
+
+---
+
 **Phase 6 complete.** Verify before proceeding:
 
 ```bash
@@ -399,6 +625,7 @@ npm run test:coverage
 - [ ] All tests pass with 100% coverage
 - [ ] Uploading an image to a frame node replaces the film-placeholder
 - [ ] Images persist across page refresh
+- [ ] Asking for a new image uses `gpt-image-2` and attaches the result to the target frame or character
 - [ ] `STORAGE_TYPE=local` saves to `public/uploads/`
 - [ ] `STORAGE_TYPE=s3` would upload to S3 bucket (test with DO Spaces credentials)
 
