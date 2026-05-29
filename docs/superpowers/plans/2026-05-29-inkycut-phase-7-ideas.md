@@ -195,6 +195,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const project = await getProjectById(params.id, session.user.id)
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const idea = await getIdeaByProject(params.id)
   return NextResponse.json(idea ?? null)
 }
@@ -220,8 +222,8 @@ git commit -m "feat: add ideas gallery API routes (publish/unpublish/list)"
 - [ ] **Step 1: Extract ideas page CSS**
 
 ```bash
-# Extract the <style> block from /tmp/inkycut/ideas.html
-sed -n '11,78p' /tmp/inkycut/ideas.html | sed 's/^  //' > src/app/ideas/page.module.css
+# Extract the <style> block from docs/superpowers/designs/ideas.html
+sed -n '11,78p' docs/superpowers/designs/ideas.html | sed 's/^  //' > src/app/ideas/page.module.css
 ```
 
 - [ ] **Step 2: Write `src/components/ideas/FilterBar.tsx`**
@@ -396,7 +398,7 @@ export default async function IdeasPage() {
       <footer className="foot" style={{ marginTop: 80 }}>
         <div className="wrap" style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-faint)" }}>
           <span>© 2026 Inkycut</span>
-          <span>Made on an infinite canvas ✦</span>
+          <span>Made on an infinite canvas</span>
         </div>
       </footer>
     </>
@@ -471,7 +473,7 @@ export function PublishModal({ projectId, projectName, isPublished, onClose, onP
 
         {isPublished && (
           <div style={{ marginBottom: 16, padding: "10px 14px", background: "var(--accent-tint)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--accent-700)" }}>
-            ✦ Currently published — update or unpublish below.
+            Currently published. Update or unpublish below.
           </div>
         )}
 
@@ -547,7 +549,7 @@ const [isPublished, setIsPublished] = useState(false)
   }}
   className="publish-btn"
 >
-  ✦ publish
+  Publish
 </button>
 
 {showPublish && (
@@ -577,10 +579,10 @@ Add import: `import { PublishModal } from "./PublishModal"`
 - [ ] **Step 3: Verify publish flow in browser**
 
 1. Open dashboard, hover a project card
-2. Click "✦ publish" button
+2. Click "Publish" button
 3. Fill in title, description, genre → click "Publish →"
 4. Open http://localhost:3000/ideas — project appears in gallery
-5. Return to dashboard → click "✦ publish" again → "Update" and "Unpublish" options available
+5. Return to dashboard → click "Publish" again → "Update" and "Unpublish" options available
 6. Click "Unpublish" → project disappears from /ideas
 
 - [ ] **Step 4: Commit**
@@ -595,10 +597,10 @@ git commit -m "feat: add publish-to-gallery flow from dashboard project cards"
 **Phase 7 complete.** Verify before proceeding:
 
 ```bash
-npx jest
+npm run test:coverage
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] `/ideas` shows published projects in masonry grid
 - [ ] Publishing a project from dashboard makes it appear in `/ideas`
 - [ ] Unpublishing removes it from `/ideas`

@@ -43,6 +43,8 @@ Expected: FAIL
 ```ts
 import { Server } from "socket.io"
 import type { Server as HTTPServer } from "http"
+import { getToken } from "next-auth/jwt"
+import { getProjectById } from "@/lib/db/queries/projects"
 
 let io: Server | null = null
 
@@ -61,13 +63,16 @@ export function initSocketServer(httpServer: HTTPServer): Server {
     },
   })
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const projectId = socket.handshake.auth.projectId as string | undefined
-    const userId = socket.handshake.auth.userId as string | undefined
-    const userName = socket.handshake.auth.userName as string | undefined
-    const userImage = socket.handshake.auth.userImage as string | undefined
+    const token = await getToken({ req: socket.request as any, secret: process.env.NEXTAUTH_SECRET })
+    const userId = token?.id as string | undefined
+    const userName = (token?.name as string | undefined) ?? ""
+    const userImage = (token?.picture as string | undefined) ?? ""
 
     if (!projectId || !userId) { socket.disconnect(); return }
+    const project = await getProjectById(projectId, userId)
+    if (!project) { socket.disconnect(); return }
 
     const room = getRoomName(projectId)
     socket.join(room)
@@ -168,11 +173,17 @@ try {
 ```ts
 // Add import:
 import { broadcastToProject } from "@/lib/socket"
+import { buildElementPatch } from "@/lib/db/queries/elements"
 import { db } from "@/lib/db"
 import { elements as elementsTable } from "@/lib/db/schema"
 import { eq as drizzleEq } from "drizzle-orm"
 
-// In PATCH handler, after updateElement succeeds:
+// In PATCH handler, before updateElement:
+const safePatch = buildElementPatch(patch)
+const updated = await updateElement(params.id, project.id, safePatch)
+if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+// Then broadcast the same sanitized patch:
 try {
   broadcastToProject(project.id, "element:updated", { elementId: params.id, patch: safePatch })
 } catch {}
@@ -312,18 +323,15 @@ import type { CanvasElement } from "@/types/canvas"
 
 interface UseSocketOptions {
   projectId: string
-  userId: string
-  userName: string
-  userImage: string
 }
 
-export function useSocket({ projectId, userId, userName, userImage }: UseSocketOptions) {
+export function useSocket({ projectId }: UseSocketOptions) {
   const socketRef = useRef<Socket | null>(null)
   const canvasStore = useCanvasStore()
   const presenceStore = usePresenceStore()
 
   useEffect(() => {
-    const socket = io({ path: "/api/socket", auth: { projectId, userId, userName, userImage } })
+    const socket = io({ path: "/api/socket", auth: { projectId } })
     socketRef.current = socket
 
     socket.on("element:created", (element: CanvasElement) => {
@@ -395,7 +403,7 @@ import { useSocket } from "@/hooks/useSocket"
 import { usePresenceStore } from "@/hooks/usePresence"
 
 // Inside the Canvas component, after existing hooks:
-const { emitCursor } = useSocket({ projectId: project.id, userId, userName, userImage })
+const { emitCursor } = useSocket({ projectId: project.id })
 const collaborators = usePresenceStore((s) => s.collaborators)
 ```
 
@@ -478,11 +486,11 @@ git commit -m "feat: wire Socket.io into Canvas for real-time element sync and p
 **Phase 5 complete.** Verify before proceeding:
 
 ```bash
-npx jest
+npm run test:coverage
 tsx server.ts
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] Two browser tabs on the same project sync element mutations in real time
 - [ ] Presence indicators (collaborator initials) appear in topbar when multiple users are in the same project
 - [ ] Cursor moves are throttled to ~30fps

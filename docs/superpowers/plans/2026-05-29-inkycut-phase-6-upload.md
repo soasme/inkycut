@@ -185,7 +185,7 @@ tsx server.ts
 # Upload a test image (requires auth cookie)
 curl -s -X POST http://localhost:3000/api/upload \
   -H "Cookie: authjs.session-token=..." \
-  -F "file=@/tmp/inkycut/screenshots/app1.png" | python3 -m json.tool
+  -F "file=@docs/superpowers/designs/screenshots/app1.png" | python3 -m json.tool
 ```
 
 Expected: `{"url":"/uploads/some-uuid.png"}` (local mode)
@@ -238,6 +238,7 @@ Expected: FAIL
 - [ ] **Step 3: Write `src/components/ui/ImageSlot.tsx`**
 
 ```tsx
+import Image from "next/image"
 import { Frame } from "./Frame"
 
 interface ImageSlotProps {
@@ -251,11 +252,14 @@ interface ImageSlotProps {
 export function ImageSlot({ url, hue = "slate", alt = "", className, style }: ImageSlotProps) {
   if (url) {
     return (
-      <img
+      <Image
         src={url}
         alt={alt}
+        fill
+        sizes="(max-width: 768px) 100vw, 420px"
         className={className}
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", ...style }}
+        style={{ objectFit: "cover", display: "block", ...style }}
+        unoptimized={url.startsWith("/uploads/")}
       />
     )
   }
@@ -389,10 +393,10 @@ git commit -m "feat: add ImageSlot component and image upload for frame nodes"
 **Phase 6 complete.** Verify before proceeding:
 
 ```bash
-npx jest
+npm run test:coverage
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] Uploading an image to a frame node replaces the film-placeholder
 - [ ] Images persist across page refresh
 - [ ] `STORAGE_TYPE=local` saves to `public/uploads/`

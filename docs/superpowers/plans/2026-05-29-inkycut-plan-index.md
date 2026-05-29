@@ -44,8 +44,8 @@ inkycut/
 ├── public/
 │   └── uploads/                       # Local file storage dev (Phase 6)
 ├── styles/
-│   ├── inky.css                       # Copied verbatim from /tmp/inkycut (Phase 1)
-│   └── app.css                        # Canvas styles, copied from /tmp/inkycut (Phase 1)
+│   ├── inky.css                       # Copied verbatim from docs/superpowers/designs (Phase 1)
+│   └── app.css                        # Canvas styles, copied from docs/superpowers/designs (Phase 1)
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx                 # Root layout: fonts, global CSS, providers (Phase 1)

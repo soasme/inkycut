@@ -25,7 +25,7 @@ Inkycut is an AI-native video-creation web app built around an infinite canvas. 
 
 ## Design System
 
-Strictly follows `/tmp/inkycut`. Key constraints:
+Strictly follows `docs/superpowers/designs`, especially `docs/superpowers/designs/DESIGN.md`. Key constraints:
 
 - **Fonts:** Archivo (sans) + IBM Plex Mono (mono). No others.
 - **Accent:** Sky blue `#2f9fe0` only. No second accent hue.
@@ -277,7 +277,7 @@ list_elements()                          // returns current canvas element summa
 - `local` → write to `public/uploads/<uuid>.<ext>`, return `/uploads/<uuid>.<ext>`
 - `s3` → stream to S3-compatible bucket using AWS SDK v3, return `https://<bucket>/<key>`
 
-**Usage:** Returned URL stored in `elements.data.imageUrl`. Displayed via `<image-slot>` or standard `<img>` inside frame nodes.
+**Usage:** Returned URL stored in `elements.data.imageUrl`. Displayed via the React `<ImageSlot>` component inside frame nodes.
 
 ---
 

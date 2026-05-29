@@ -131,8 +131,9 @@ import { auth } from "@/lib/auth"
 import { getProjectById } from "@/lib/db/queries/projects"
 import { db } from "@/lib/db"
 import { elementConnections } from "@/lib/db/schema"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { broadcastToProject } from "@/lib/socket"
+import { elements } from "@/lib/db/schema"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -145,6 +146,18 @@ export async function POST(req: Request) {
 
   const project = await getProjectById(projectId, session.user.id)
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const endpoints = await db
+    .select()
+    .from(elements)
+    .where(and(
+      eq(elements.projectId, projectId),
+      eq(elements.type, "frame"),
+      inArray(elements.id, [fromElementId, toElementId])
+    ))
+  if (endpoints.length !== 2) {
+    return NextResponse.json({ error: "Both endpoints must be frame elements in this project" }, { status: 400 })
+  }
 
   const [conn] = await db
     .insert(elementConnections)
@@ -315,10 +328,10 @@ git commit -m "feat: add frame connection UI with directed edge drawing and SVG 
 - [ ] **Step 1: Install Mediabunny**
 
 ```bash
-npm install mediabunny
+npm install mediabunny html2canvas
 ```
 
-Check the [Mediabunny documentation](https://mediabunny.dev) for the current API. The integration below uses the documented API as of 2026; verify against the installed version's types.
+Use Mediabunny's typed `Output`, `Mp4OutputFormat`, `BufferTarget`, and `CanvasSource` API. Do not use a non-existent clip/composer API and do not cast the package to `any`; verify against the installed `.d.ts` files if TypeScript reports drift.
 
 - [ ] **Step 2: Write `src/components/canvas/export/useVideoExport.ts`**
 
@@ -360,64 +373,76 @@ export function useVideoExport() {
 
     try {
       // Dynamic import so Mediabunny only loads on Chrome desktop
-      const Mediabunny = await import("mediabunny")
+      const { Output, Mp4OutputFormat, BufferTarget, CanvasSource, QUALITY_HIGH } = await import("mediabunny")
+      const html2canvas = (await import("html2canvas")).default
 
-      // Create a composition using Mediabunny's API.
-      // Refer to https://mediabunny.dev/docs for the current API surface.
-      // The pattern below assumes a clip-based composition API similar to:
-      //   const composer = new Mediabunny.Composer({ width: 1920, height: 1080 })
-      //   composer.addClip(imageElement, { duration: 3000 })
-      //   const blob = await composer.render()
+      const canvas = document.createElement("canvas")
+      canvas.width = 1920
+      canvas.height = 1080
+      const ctx = canvas.getContext("2d")!
 
-      const composer = new (Mediabunny as any).Composer({ width: 1920, height: 1080, fps: 30 })
+      const output = new Output({
+        format: new Mp4OutputFormat(),
+        target: new BufferTarget(),
+      })
+      const videoSource = new CanvasSource(canvas, { codec: "avc", bitrate: QUALITY_HIGH })
+      output.addVideoTrack(videoSource)
+      await output.start()
 
+      async function drawImageUrl(url: string) {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve()
+          img.onerror = reject
+          img.src = url
+        })
+        ctx.fillStyle = "#000"
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        const scale = Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight)
+        const w = img.naturalWidth * scale
+        const h = img.naturalHeight * scale
+        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h)
+      }
+
+      async function drawPlaceholder(data: FrameData) {
+        const el = document.createElement("div")
+        el.className = `frame f-${data.hue ?? "slate"}`
+        el.style.width = "1920px"
+        el.style.height = "1080px"
+        el.style.position = "fixed"
+        el.style.left = "-9999px"
+        el.innerHTML = `<span class="fslug">${data.slug ?? "FRAME"}</span><span class="fmeta">${data.meta ?? ""}</span>`
+        document.body.appendChild(el)
+        try {
+          const rendered = await html2canvas(el, { backgroundColor: null, width: 1920, height: 1080, scale: 1 })
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(rendered, 0, 0, canvas.width, canvas.height)
+        } finally {
+          el.remove()
+        }
+      }
+
+      let timestamp = 0
       for (let i = 0; i < chain.frames.length; i++) {
         const frame = chain.frames[i]
         const data = frame.data as FrameData
-        const durationMs = (data.duration ?? 3) * 1000
+        const duration = data.duration ?? 3
 
         if (data.imageUrl) {
-          // Load image and add as clip
-          const img = new Image()
-          img.crossOrigin = "anonymous"
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve()
-            img.onerror = reject
-            img.src = data.imageUrl!
-          })
-          composer.addClip(img, { duration: durationMs })
+          await drawImageUrl(data.imageUrl)
         } else {
-          // Render the film-placeholder to a canvas and use as clip
-          const offscreen = document.createElement("canvas")
-          offscreen.width = 1920
-          offscreen.height = 1080
-          const ctx = offscreen.getContext("2d")!
-          // Draw gradient background matching the hue
-          const hueGradients: Record<string, [string, string]> = {
-            slate: ["#1a1e26", "#2d3340"],
-            rain: ["#1a2030", "#243050"],
-            amber: ["#2a1a0a", "#3d2510"],
-            crimson: ["#2a1010", "#3d1515"],
-            forest: ["#0a1a10", "#153020"],
-          }
-          const [c1, c2] = hueGradients[data.hue ?? "slate"] ?? hueGradients.slate
-          const grad = ctx.createLinearGradient(0, 0, 1920, 1080)
-          grad.addColorStop(0, c1)
-          grad.addColorStop(1, c2)
-          ctx.fillStyle = grad
-          ctx.fillRect(0, 0, 1920, 1080)
-          // Draw slug text
-          ctx.fillStyle = "rgba(255,255,255,0.7)"
-          ctx.font = "bold 48px monospace"
-          ctx.fillText(data.slug ?? "FRAME", 60, 100)
-          composer.addClip(offscreen, { duration: durationMs })
+          await drawPlaceholder(data)
         }
 
+        await videoSource.add(timestamp, duration)
+        timestamp += duration
         setProgress(Math.round(((i + 1) / chain.frames.length) * 80))
       }
 
       setProgress(85)
-      const blob: Blob = await composer.render()
+      await output.finalize()
+      const blob = new Blob([output.target.buffer], { type: output.format.mimeType })
       setProgress(100)
 
       // Trigger download
@@ -512,7 +537,7 @@ export function ExportModal({ elements, connections, onClose }: ExportModalProps
         {state === "rendering" && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--accent-700)", marginBottom: 8 }}>
-              ✦ rendering… {progress}%
+              Rendering... {progress}%
             </div>
             <div style={{ height: 4, background: "var(--paper-2)", borderRadius: 999, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${progress}%`, background: "var(--accent)", transition: "width .3s ease" }} />
@@ -522,7 +547,7 @@ export function ExportModal({ elements, connections, onClose }: ExportModalProps
 
         {state === "done" && (
           <div style={{ marginBottom: 16, padding: "10px 14px", background: "var(--accent-tint)", borderRadius: "var(--r-sm)", fontFamily: "var(--mono)", fontSize: 12, color: "var(--accent-700)" }}>
-            ✦ Export complete — download started.
+            Export complete. Download started.
           </div>
         )}
 
@@ -607,10 +632,10 @@ git commit -m "feat: implement video export with Mediabunny, chain picker, and f
 - [ ] **Step 1: Run full test suite**
 
 ```bash
-npx jest --coverage
+npm run test:coverage
 ```
 
-Expected: All tests pass. Coverage summary printed.
+Expected: All tests pass and coverage is 100% for branches, functions, lines, and statements.
 
 - [ ] **Step 2: Run the app and verify the full user journey**
 
@@ -633,7 +658,7 @@ Walk through the complete golden path:
 11. Shift+click two frame nodes → dashed connection line appears
 12. Click "Export video" → export modal shows the sequence
 13. Click "Render →" → MP4 downloads
-14. Go to `/dashboard`, hover project card → click "✦ publish"
+14. Go to `/dashboard`, hover project card → click "Publish"
 15. Fill in title, genre → click "Publish →"
 16. Open http://localhost:3000/ideas → project card appears in gallery
 17. Click sign-out in sidebar → redirects to `/`
@@ -650,12 +675,12 @@ git commit -m "chore: phase 8 complete — full golden path verified"
 **All phases complete.**
 
 ```
-Phase 1 — Foundation    ✓
-Phase 2 — Dashboard     ✓
-Phase 3 — Canvas        ✓
-Phase 4 — AI Chat       ✓
-Phase 5 — Real-time     ✓
-Phase 6 — File Upload   ✓
-Phase 7 — Ideas Gallery ✓
-Phase 8 — Video Export  ✓
+Phase 1 — Foundation    complete
+Phase 2 — Dashboard     complete
+Phase 3 — Canvas        complete
+Phase 4 — AI Chat       complete
+Phase 5 — Real-time     complete
+Phase 6 — File Upload   complete
+Phase 7 — Ideas Gallery complete
+Phase 8 — Video Export  complete
 ```

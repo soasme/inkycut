@@ -26,10 +26,10 @@
 
 ```bash
 cd /Users/soasme/github.com/soasme/inkycut
-npx create-next-app@latest . --typescript --tailwind=false --eslint --app --src-dir --import-alias "@/*" --no-git
+npx create-next-app@14.2.15 . --typescript --tailwind=false --eslint --app --src-dir --import-alias "@/*" --no-git
 ```
 
-When prompted, accept all defaults. This creates the App Router scaffold.
+When prompted, accept all defaults. This creates a pinned Next.js 14 App Router scaffold, which keeps the auth gate on `src/middleware.ts` and avoids Next 16's `proxy.ts` rename.
 
 - [ ] **Step 2: Install all project dependencies**
 
@@ -43,8 +43,19 @@ npm install -D drizzle-kit @types/pg @types/multer tsx jest jest-environment-jsd
 ```ts
 import type { NextConfig } from "next"
 
+const s3Endpoint = process.env.S3_ENDPOINT ? new URL(process.env.S3_ENDPOINT) : null
+
 const nextConfig: NextConfig = {
   experimental: { serverComponentsExternalPackages: ["pg"] },
+  images: {
+    remotePatterns: s3Endpoint
+      ? [{
+          protocol: s3Endpoint.protocol.replace(":", "") as "http" | "https",
+          hostname: s3Endpoint.hostname,
+          pathname: "/**",
+        }]
+      : [],
+  },
 }
 
 export default nextConfig
@@ -74,6 +85,18 @@ const config: Config = {
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
   transform: { "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }] },
   testPathPattern: ["**/__tests__/**/*.test.ts?(x)"],
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+  },
 }
 
 export default config
@@ -96,6 +119,7 @@ Replace the `scripts` section:
   "start": "NODE_ENV=production tsx server.ts",
   "lint": "next lint",
   "test": "jest",
+  "test:coverage": "jest --coverage",
   "test:watch": "jest --watch",
   "db:generate": "drizzle-kit generate",
   "db:migrate": "drizzle-kit migrate",
@@ -146,16 +170,16 @@ git commit -m "chore: scaffold Next.js project with all dependencies"
 - [ ] **Step 1: Copy design system files verbatim**
 
 ```bash
-cp /tmp/inkycut/inky.css styles/inky.css
-cp /tmp/inkycut/app.css styles/app.css
-mkdir -p public/uploads
+mkdir -p styles public/uploads
+cp docs/superpowers/designs/inky.css styles/inky.css
+cp docs/superpowers/designs/app.css styles/app.css
 ```
 
 - [ ] **Step 2: Verify no edits were made**
 
 ```bash
-diff /tmp/inkycut/inky.css styles/inky.css
-diff /tmp/inkycut/app.css styles/app.css
+diff docs/superpowers/designs/inky.css styles/inky.css
+diff docs/superpowers/designs/app.css styles/app.css
 ```
 
 Expected: no output (files are identical).
@@ -427,7 +451,7 @@ npx drizzle-kit migrate
 
 Expected: Migration files created in `src/lib/db/migrations/`, tables created in DB.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/lib/db/ src/types/ src/__tests__/ drizzle.config.ts
@@ -441,6 +465,7 @@ git commit -m "feat: add Drizzle schema (7 tables) and run initial migration"
 **Files:**
 - Create: `src/lib/auth.ts`
 - Create: `src/app/api/auth/[...nextauth]/route.ts`
+- Create: `src/types/next-auth.d.ts`
 - Modify: `src/app/layout.tsx`
 
 - [ ] **Step 1: Write `src/lib/auth.ts`**
@@ -459,6 +484,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
+  session: { strategy: "jwt" },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -466,8 +492,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    session({ session, user }) {
-      if (session.user) session.user.id = user.id
+    jwt({ token, user }) {
+      if (user?.id) token.id = user.id
+      return token
+    },
+    session({ session, token }) {
+      if (session.user) session.user.id = token.id as string
       return session
     },
   },
@@ -483,7 +513,28 @@ import { handlers } from "@/lib/auth"
 export const { GET, POST } = handlers
 ```
 
-- [ ] **Step 3: Create a session provider wrapper**
+- [ ] **Step 3: Add NextAuth TypeScript augmentation**
+
+```ts
+// src/types/next-auth.d.ts
+import type { DefaultSession } from "next-auth"
+import "next-auth"
+import "next-auth/jwt"
+
+declare module "next-auth" {
+  interface Session {
+    user: { id: string } & DefaultSession["user"]
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id?: string
+  }
+}
+```
+
+- [ ] **Step 4: Create a session provider wrapper**
 
 ```ts
 // src/components/SessionProvider.tsx
@@ -495,12 +546,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 }
 ```
 
-- [ ] **Step 4: Write `src/app/layout.tsx`**
+- [ ] **Step 5: Write `src/app/layout.tsx`**
 
 ```tsx
 import type { Metadata } from "next"
 import { SessionProvider } from "@/components/SessionProvider"
-import "@/../../styles/inky.css"
+import "../../styles/inky.css"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -527,7 +578,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-- [ ] **Step 5: Delete `src/app/globals.css` default content and replace**
+- [ ] **Step 6: Delete `src/app/globals.css` default content and replace**
 
 ```css
 /* src/app/globals.css — minimal resets only, design tokens live in inky.css */
@@ -536,7 +587,7 @@ a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
 ```
 
-- [ ] **Step 6: Write a middleware to protect routes**
+- [ ] **Step 7: Write a middleware to protect routes**
 
 ```ts
 // src/middleware.ts
@@ -556,7 +607,7 @@ export default auth((req) => {
 export const config = { matcher: ["/dashboard/:path*", "/projects/:path*"] }
 ```
 
-- [ ] **Step 7: Verify auth route responds**
+- [ ] **Step 8: Verify auth route responds**
 
 ```bash
 next dev &
@@ -568,7 +619,7 @@ Expected: JSON with `google` provider listed.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/auth.ts src/app/api/auth/ src/components/SessionProvider.tsx src/app/layout.tsx src/app/globals.css src/middleware.ts
+git add src/lib/auth.ts src/app/api/auth/ src/components/SessionProvider.tsx src/types/next-auth.d.ts src/app/layout.tsx src/app/globals.css src/middleware.ts
 git commit -m "feat: configure NextAuth v5 Google OAuth with Drizzle adapter"
 ```
 
@@ -730,17 +781,17 @@ git commit -m "feat: add Logo, Frame, and Nav shared UI components"
 
 - [ ] **Step 1: Extract landing page CSS from reference**
 
-Copy the `<style>` block from `/tmp/inkycut/index.html` (lines 12–193) into `src/app/page.module.css`, prefixing every class selector with `:global(.)` is unnecessary here — use CSS Modules with `:global` for the classes that come from `inky.css`, and define landing-specific classes locally.
+Copy the `<style>` block from `docs/superpowers/designs/index.html` (lines 12-193) into `src/app/page.module.css`, prefixing every class selector with `:global(.)` is unnecessary here — use CSS Modules with `:global` for the classes that come from `inky.css`, and define landing-specific classes locally.
 
 ```css
 /* src/app/page.module.css — landing-specific styles only */
-/* Paste the <style> block from /tmp/inkycut/index.html verbatim here */
+/* Paste the <style> block from docs/superpowers/designs/index.html verbatim here */
 /* (nav, hero, board, marquee, feat, spec, steps, cta-band, foot-grid) */
 ```
 
 ```bash
 # Extract the style block (lines 12-193)
-sed -n '12,193p' /tmp/inkycut/index.html | sed 's/^  //' > src/app/page.module.css
+sed -n '12,193p' docs/superpowers/designs/index.html | sed 's/^  //' > src/app/page.module.css
 ```
 
 - [ ] **Step 2: Write `src/app/page.tsx`** — port `index.html` body to JSX, replacing class= with className= and href="app.html" with href="/login" (or "/dashboard" for logged-in users)
@@ -795,7 +846,7 @@ export default function LandingPage() {
                 <span className="badge">▷ VIDEO</span> Video Specialist
               </div>
               <p>Generated 4 shots for the rooftop chase. Want me to cut these into a finished sequence?</p>
-              <span className="pill">✦ rendering the cut…</span>
+              <span className="pill">rendering the cut...</span>
             </div>
           </div>
         </div>
@@ -919,7 +970,7 @@ export default function LandingPage() {
         </div>
         <div className="wrap" style={{ marginTop: 40, display: "flex", justifyContent: "space-between", fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-faint)" }}>
           <span>© 2026 Inkycut</span>
-          <span>Made on an infinite canvas ✦</span>
+          <span>Made on an infinite canvas</span>
         </div>
       </footer>
 
@@ -946,7 +997,7 @@ Open http://localhost:3000. Verify:
 - Dark CTA band
 - Footer
 
-Compare visually against `/tmp/inkycut/index.html` opened in a browser. They should be near-identical.
+Compare visually against `docs/superpowers/designs/index.html` opened in a browser. They should be near-identical.
 
 - [ ] **Step 4: Commit**
 
@@ -1068,11 +1119,11 @@ git commit -m "feat: add login page with Google OAuth sign-in"
 **Phase 1 complete.** Verify the full phase before moving on:
 
 ```bash
-npx jest
+npm run test:coverage
 next dev
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] Landing page at http://localhost:3000 matches reference design
 - [ ] http://localhost:3000/login shows centered card
 - [ ] http://localhost:3000/dashboard redirects to /login (middleware working)

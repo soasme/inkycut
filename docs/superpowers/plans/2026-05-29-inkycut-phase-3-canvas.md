@@ -320,7 +320,10 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
   draggingId: null,
 
   setElements: (elements) => set({ elements }),
-  addElement: (element) => set((s) => ({ elements: [...s.elements, element] })),
+  addElement: (element) =>
+    set((s) => ({
+      elements: s.elements.some((e) => e.id === element.id) ? s.elements : [...s.elements, element],
+    })),
   updateElement: (id, patch) =>
     set((s) => ({
       elements: s.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)),
@@ -775,7 +778,7 @@ export function StoryboardNode({ element, onGenerateShotlist, busy }: Storyboard
             disabled={data.hasShotList || busy}
             onClick={(e) => { e.stopPropagation(); onGenerateShotlist(element) }}
           >
-            {data.hasShotList ? "✓ shot list created" : busy ? "✦ working…" : "Generate shot list →"}
+            {data.hasShotList ? "Shot list created" : busy ? "Working..." : "Generate shot list →"}
           </button>
         </div>
       </div>
@@ -1190,7 +1193,11 @@ export function Canvas({ project, initialElements, conversationId, userId, userN
     await fetch(`/api/projects/${project.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(viewport),
+      body: JSON.stringify({
+        viewportX: viewport.x,
+        viewportY: viewport.y,
+        viewportScale: viewport.scale,
+      }),
     })
   }, [project.id])
   const viewportSave = useAutosave(saveViewport, 1000)
@@ -1302,6 +1309,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const project = await getProjectById(params.id, session.user.id)
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const patch = await req.json()
+  const aliases: Record<string, string> = { x: "viewportX", y: "viewportY", scale: "viewportScale" }
+  for (const [from, to] of Object.entries(aliases)) {
+    if (from in patch && !(to in patch)) patch[to] = patch[from]
+  }
   const allowed = ["name", "viewportX", "viewportY", "viewportScale"]
   const safe: Record<string, unknown> = { updatedAt: new Date() }
   for (const k of allowed) { if (k in patch) safe[k] = patch[k] }
@@ -1376,10 +1387,10 @@ git commit -m "feat: implement full infinite canvas with all node types and auto
 **Phase 3 complete.** Verify before proceeding:
 
 ```bash
-npx jest
+npm run test:coverage
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] Canvas loads for a project
 - [ ] All 6 node types can be spawned from toolbar
 - [ ] Drag-to-move works and persists across refresh

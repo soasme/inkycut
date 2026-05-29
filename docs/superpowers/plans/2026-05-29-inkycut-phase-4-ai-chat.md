@@ -348,7 +348,7 @@ import { openai, CANVAS_TOOLS, buildSystemPrompt } from "@/lib/openai"
 import { parseToolCall, executeToolCall } from "@/lib/canvas-tools"
 import { getProjectById } from "@/lib/db/queries/projects"
 import { getElementsByProject } from "@/lib/db/queries/elements"
-import { getMessages, createMessage } from "@/lib/db/queries/messages"
+import { getMessages, createMessage, getConversationByProject } from "@/lib/db/queries/messages"
 import type { ChatCompletionMessageParam } from "openai/resources"
 
 export async function POST(req: Request) {
@@ -362,6 +362,11 @@ export async function POST(req: Request) {
 
   const project = await getProjectById(projectId, session.user.id)
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const conversation = await getConversationByProject(projectId)
+  if (!conversation || conversation.id !== conversationId) {
+    return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
+  }
 
   // Save user message
   await createMessage({ conversationId, role: "user", content: message.trim() })
@@ -762,10 +767,10 @@ git commit -m "feat: implement AI chat with streaming OpenAI tool calls and canv
 **Phase 4 complete.** Verify before proceeding:
 
 ```bash
-npx jest
+npm run test:coverage
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] Chat panel shows history on canvas open
 - [ ] Sending a message streams the AI response
 - [ ] AI tool calls create/update/delete elements on the canvas

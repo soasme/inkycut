@@ -681,10 +681,10 @@ git commit -m "feat: add dashboard with project grid, create/delete projects"
 **Phase 2 complete.** Verify before proceeding:
 
 ```bash
-npx jest
+npm run test:coverage
 ```
 
-- [ ] All tests pass
+- [ ] All tests pass with 100% coverage
 - [ ] Dashboard loads with project grid
 - [ ] Create project → navigates to canvas page (404 for now)
 - [ ] Delete project works with confirmation
