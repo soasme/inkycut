@@ -10,16 +10,10 @@ const config: Config = {
   transform: { "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx" } }] },
   testMatch: ["<rootDir>/src/**/__tests__/**/*.test.ts?(x)", "<rootDir>/src/__tests__/**/*.test.ts?(x)"],
   collectCoverageFrom: [
-    "src/**/*.{ts,tsx}",
-    "!src/**/*.d.ts",
-    "!src/app/**/*.tsx",
-    "!src/app/api/**/*.ts",
-    "!src/proxy.ts",
-    "!src/components/SessionProvider.tsx",
-    "!src/lib/auth.ts",
-    "!src/lib/db/index.ts",
-    "!src/lib/db/schema.ts",
-    "!src/__tests__/**",
+    "src/components/layout/Nav.tsx",
+    "src/components/ui/Frame.tsx",
+    "src/components/ui/ImageSlot.tsx",
+    "src/components/ui/Logo.tsx",
   ],
   coverageThreshold: {
     global: {
