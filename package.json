@@ -1,0 +1,60 @@
+{
+  "name": "inkycut",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:next": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@auth/drizzle-adapter": "latest",
+    "@aws-sdk/client-s3": "latest",
+    "@aws-sdk/lib-storage": "latest",
+    "drizzle-orm": "latest",
+    "multer": "latest",
+    "next": "^16.2.6",
+    "next-auth": "beta",
+    "openai": "latest",
+    "pg": "latest",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "socket.io": "latest",
+    "socket.io-client": "latest",
+    "zustand": "latest"
+  },
+  "devDependencies": {
+    "@next/env": "^16.2.6",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/jest": "latest",
+    "@types/multer": "latest",
+    "@types/node": "latest",
+    "@types/pg": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "drizzle-kit": "latest",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
+    "jest": "latest",
+    "jest-environment-jsdom": "latest",
+    "ts-jest": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  },
+  "overrides": {
+    "esbuild": "^0.28.0",
+    "postcss": "^8.5.15"
+  }
+}
