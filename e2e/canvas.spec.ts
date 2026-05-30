@@ -6,11 +6,12 @@ test("user creates canvas nodes and edits a note", async ({ page, isMobile }) =>
   test.skip(isMobile, "Canvas editing coverage runs in desktop Chrome")
 
   const user = createTestUser("Canvas")
-  await insertUser(user)
-  const project = await insertProject(user.id, e2eName("Canvas Project"))
-  await signInAs(page, user)
 
   try {
+    await insertUser(user)
+    const project = await insertProject(user.id, e2eName("Canvas Project"))
+    await signInAs(page, user)
+
     await page.goto(`/projects/${project.id}`)
     await expect(page.getByTestId("canvas-stage")).toBeVisible()
     await expect(page.getByRole("button", { name: "Export video" })).toBeVisible()
@@ -57,9 +58,6 @@ test("user sends chat and uploads a frame image through stubbed integrations", a
   test.skip(isMobile, "Canvas integration coverage runs in desktop Chrome")
 
   const user = createTestUser("Integrations")
-  await insertUser(user)
-  const project = await insertProject(user.id, e2eName("Integrations Project"))
-  await signInAs(page, user)
 
   await page.route("**/api/chat", async (route) => {
     await route.fulfill({
@@ -81,6 +79,10 @@ test("user sends chat and uploads a frame image through stubbed integrations", a
   })
 
   try {
+    await insertUser(user)
+    const project = await insertProject(user.id, e2eName("Integrations Project"))
+    await signInAs(page, user)
+
     await page.goto(`/projects/${project.id}`)
     await expect(page.getByTestId("canvas-stage")).toBeVisible()
 
@@ -121,11 +123,12 @@ test("mobile browser sees the canvas support gate", async ({ page, isMobile }) =
   test.skip(!isMobile, "Mobile gate coverage only runs in the mobile project")
 
   const user = createTestUser("Mobile Gate")
-  await insertUser(user)
-  const project = await insertProject(user.id, e2eName("Mobile Gate Project"))
-  await signInAs(page, user)
 
   try {
+    await insertUser(user)
+    const project = await insertProject(user.id, e2eName("Mobile Gate Project"))
+    await signInAs(page, user)
+
     await page.goto(`/projects/${project.id}`)
     await expect(page.getByRole("heading", { name: "Canvas requires Chrome on desktop" })).toBeVisible()
     await page.getByRole("link", { name: "Back to dashboard" }).click()

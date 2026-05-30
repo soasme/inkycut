@@ -6,10 +6,11 @@ test("user creates, opens, and deletes projects", async ({ page, isMobile }) => 
   test.skip(isMobile, "Project creation opens the Chrome desktop-only canvas")
 
   const user = createTestUser("Dashboard")
-  await insertUser(user)
-  await signInAs(page, user)
 
   try {
+    await insertUser(user)
+    await signInAs(page, user)
+
     const projectName = e2eName("Created Project")
     await page.goto("/dashboard")
     await page.getByRole("button", { name: "New project" }).click()
@@ -31,11 +32,12 @@ test("user creates, opens, and deletes projects", async ({ page, isMobile }) => 
 
 test("user publishes a project to the ideas gallery", async ({ page }) => {
   const user = createTestUser("Publish")
-  await insertUser(user)
-  const project = await insertProject(user.id, e2eName("Publish Project"))
-  await signInAs(page, user)
 
   try {
+    await insertUser(user)
+    const project = await insertProject(user.id, e2eName("Publish Project"))
+    await signInAs(page, user)
+
     const ideaTitle = e2eName("Published Idea")
     await page.goto("/dashboard")
     await page.getByRole("button", { name: "Publish project" }).click()

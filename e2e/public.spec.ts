@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { cleanupUser, createTestUser, insertProject, insertUser, publishIdea } from "./support/db"
+import { cleanupUser, createTestUser, e2eName, insertProject, insertUser, publishIdea } from "./support/db"
 
 test("visitor can navigate public landing and ideas pages", async ({ page }) => {
   await page.goto("/")
@@ -17,17 +17,18 @@ test("visitor can navigate public landing and ideas pages", async ({ page }) => 
 test("ideas gallery shows published projects", async ({ page }) => {
   const user = createTestUser("Ideas")
   const title = `Published ${user.id}`
-  await insertUser(user)
-  const project = await insertProject(user.id, e2eProjectName(title))
-  await publishIdea({
-    projectId: project.id,
-    userId: user.id,
-    title,
-    description: "A seeded E2E gallery item.",
-    genre: "Sci-Fi",
-  })
 
   try {
+    await insertUser(user)
+    const project = await insertProject(user.id, e2eName("Ideas Project"))
+    await publishIdea({
+      projectId: project.id,
+      userId: user.id,
+      title,
+      description: "A seeded E2E gallery item.",
+      genre: "Sci-Fi",
+    })
+
     await page.goto("/ideas")
     await expect(page.getByText(title)).toBeVisible()
     await expect(page.getByText("A seeded E2E gallery item.")).toBeVisible()
@@ -36,7 +37,3 @@ test("ideas gallery shows published projects", async ({ page }) => {
     await cleanupUser(user.id)
   }
 })
-
-function e2eProjectName(title: string) {
-  return title.replace("Published", "Project")
-}

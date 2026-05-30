@@ -82,12 +82,22 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/openai/v1/chat/completions") {
-    await readBody(req)
-    json(res, 200, {
-      id: "chatcmpl-e2e",
-      object: "chat.completion",
-      choices: [{ index: 0, message: { role: "assistant", content: "Stubbed E2E response." }, finish_reason: "stop" }],
-    })
+    const body = JSON.parse(await readBody(req))
+    if (body.stream) {
+      const chunk1 = { id: "chatcmpl-e2e", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: "Stubbed E2E response." }, finish_reason: null }] }
+      const chunk2 = { id: "chatcmpl-e2e", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }
+      res.writeHead(200, { "content-type": "text/event-stream" })
+      res.write(`data: ${JSON.stringify(chunk1)}\n\n`)
+      res.write(`data: ${JSON.stringify(chunk2)}\n\n`)
+      res.write("data: [DONE]\n\n")
+      res.end()
+    } else {
+      json(res, 200, {
+        id: "chatcmpl-e2e",
+        object: "chat.completion",
+        choices: [{ index: 0, message: { role: "assistant", content: "Stubbed E2E response." }, finish_reason: "stop" }],
+      })
+    }
     return
   }
 

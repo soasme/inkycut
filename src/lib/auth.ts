@@ -36,20 +36,24 @@ export async function auth() {
   if (process.env.E2E_AUTH_BYPASS === "1") {
     const value = (await cookies()).get("inkycut-e2e-user")?.value
     if (value) {
-      const user = JSON.parse(decodeURIComponent(value)) as {
-        id: string
-        name?: string
-        email?: string
-        image?: string
-      }
-      return {
-        user: {
-          id: user.id,
-          name: user.name ?? null,
-          email: user.email ?? null,
-          image: user.image ?? null,
-        },
-        expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      try {
+        const user = JSON.parse(decodeURIComponent(value)) as {
+          id: string
+          name?: string
+          email?: string
+          image?: string
+        }
+        return {
+          user: {
+            id: user.id,
+            name: user.name ?? null,
+            email: user.email ?? null,
+            image: user.image ?? null,
+          },
+          expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        }
+      } catch {
+        // malformed cookie — fall through to real auth
       }
     }
   }
