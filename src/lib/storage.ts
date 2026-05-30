@@ -51,7 +51,8 @@ export async function saveS3File(buffer: Buffer, mimeType: string) {
       ACL: "public-read",
     }),
   )
-  return `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_NAME}/${key}`
+  const endpoint = (process.env.S3_ENDPOINT ?? "").replace(/\/$/, "")
+  return `${endpoint}/${process.env.S3_BUCKET_NAME}/${key}`
 }
 
 export async function uploadFile(buffer: Buffer, mimeType: string) {

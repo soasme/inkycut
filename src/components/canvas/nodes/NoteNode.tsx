@@ -8,7 +8,7 @@ export function NoteNode({ element, onChange }: { element: CanvasElement; onChan
   return (
     <>
       <NHead label="Note" type="note" />
-      <textarea data-no-drag className="note-body note-editor" value={data.text} onChange={(event) => onChange(element.id, event.target.value)} />
+      <textarea aria-label="Note text" data-no-drag className="note-body note-editor" value={data.text} onChange={(event) => onChange(element.id, event.target.value)} />
     </>
   )
 }

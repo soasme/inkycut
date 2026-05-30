@@ -8,3 +8,5 @@ coverage/
 public/uploads/
 .superpowers/
 *.tsbuildinfo
+test-results/
+next-env.d.ts

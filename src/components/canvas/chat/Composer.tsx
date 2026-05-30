@@ -30,10 +30,18 @@ export function Composer({
         ))}
       </div>
       <div className="composer-box">
-        <textarea ref={taRef} rows={1} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={keyDown} placeholder="Start from an idea..." />
+        <textarea
+          ref={taRef}
+          aria-label="Chat prompt"
+          rows={1}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={keyDown}
+          placeholder="Start from an idea..."
+        />
         <div className="composer-foot">
           <span className="model-pill">Video Specialist</span>
-          <button type="button" className="send-btn" disabled={thinking || !draft.trim()} onClick={onSend}>
+          <button type="button" className="send-btn" aria-label="Send message" disabled={thinking || !draft.trim()} onClick={onSend}>
             →
           </button>
         </div>

@@ -1,7 +1,7 @@
 import OpenAI from "openai"
 import type { ChatCompletionTool } from "openai/resources/chat/completions"
 
-export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, baseURL: process.env.OPENAI_BASE_URL })
 export const IMAGE_MODEL = "gpt-image-2"
 
 export const CANVAS_TOOLS: ChatCompletionTool[] = [

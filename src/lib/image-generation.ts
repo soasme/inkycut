@@ -35,6 +35,7 @@ export async function generateImageForElement(input: {
     model: IMAGE_MODEL,
     prompt: buildImagePrompt(input.prompt),
     size: "1536x1024",
+    response_format: "b64_json",
   })
   const b64 = response.data?.[0]?.b64_json
   if (!b64) throw new Error("Image generation returned no image data")

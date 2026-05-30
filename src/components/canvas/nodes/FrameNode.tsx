@@ -31,7 +31,14 @@ export function FrameNode({ element, onImageUpload }: { element: CanvasElement; 
       <button type="button" data-no-drag className="image-upload-btn" onClick={() => inputRef.current?.click()}>
         image
       </button>
-      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: "none" }} onChange={handleFile} />
+      <input
+        ref={inputRef}
+        aria-label="Upload frame image"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        style={{ display: "none" }}
+        onChange={handleFile}
+      />
     </div>
   )
 }

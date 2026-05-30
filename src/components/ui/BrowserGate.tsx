@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useSyncExternalStore } from "react"
 
 function isSupported() {
   if (typeof navigator === "undefined") return false
@@ -9,7 +9,11 @@ function isSupported() {
 }
 
 export function BrowserGate({ children }: { children: React.ReactNode }) {
-  const [supported] = useState(() => isSupported())
+  const supported = useSyncExternalStore(
+    () => () => undefined,
+    isSupported,
+    () => false,
+  )
 
   if (supported) return <>{children}</>
 

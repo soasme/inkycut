@@ -19,7 +19,12 @@ export function NodeWrapper({
     .filter(Boolean)
     .join(" ")
   return (
-    <div className={classes} style={{ left: element.x, top: element.y, width: element.w, height: element.h ?? undefined }} onPointerDown={onPointerDown}>
+    <div
+      className={classes}
+      data-testid={`canvas-node-${element.type}`}
+      style={{ left: element.x, top: element.y, width: element.w, height: element.h ?? undefined }}
+      onPointerDown={onPointerDown}
+    >
       {children}
     </div>
   )

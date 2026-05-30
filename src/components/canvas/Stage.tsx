@@ -72,7 +72,7 @@ export function Stage({ onNodeUpdate, onGenerateShotlist, onNoteChange, onImageU
   }
 
   return (
-    <div ref={stageRef} className="stage" onPointerMove={move} onPointerUp={up} onWheel={wheel} onPointerDown={() => setConnectSource(null)}>
+    <div ref={stageRef} data-testid="canvas-stage" className="stage" onPointerMove={move} onPointerUp={up} onWheel={wheel} onPointerDown={() => setConnectSource(null)}>
       <div className="stage-dots" />
       <div className="canvas-layer" style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})` }}>
         <svg style={{ position: "absolute", inset: 0, width: 1, height: 1, overflow: "visible", pointerEvents: "none" }}>

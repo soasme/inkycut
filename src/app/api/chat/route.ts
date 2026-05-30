@@ -26,18 +26,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
   }
 
-  await createMessage({ conversationId, role: "user", content: message.trim() })
   const elements = await getElementsByProject(projectId)
   const history = await getMessages(conversationId, 20)
+  await createMessage({ conversationId, role: "user", content: message.trim() })
   const openaiMessages: ChatCompletionMessageParam[] = [
     { role: "system", content: buildSystemPrompt(elements as never) },
-    ...history.slice(0, -1).map((item) => ({
+    ...history.map((item) => ({
       role: item.role === "agent" ? ("assistant" as const) : ("user" as const),
       content: item.content ?? "",
     })),
     { role: "user", content: message.trim() },
   ]
 
+  const MAX_TOOL_ITERATIONS = 10
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
@@ -45,8 +46,14 @@ export async function POST(req: Request) {
       let fullText = ""
       let currentMessages = [...openaiMessages]
       let shouldContinue = true
+      let iterations = 0
 
+      try {
       while (shouldContinue) {
+        if (++iterations > MAX_TOOL_ITERATIONS) {
+          send({ type: "error", message: "Too many tool call iterations" })
+          break
+        }
         const response = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: currentMessages,
@@ -117,6 +124,10 @@ export async function POST(req: Request) {
       await createMessage({ conversationId, role: "agent", agentName: "Video Specialist", content: fullText })
       send({ type: "done" })
       controller.close()
+      } catch (err) {
+        try { send({ type: "error", message: err instanceof Error ? err.message : "Internal error" }) } catch {}
+        controller.error(err)
+      }
     },
   })
 

@@ -22,7 +22,7 @@ export default async function IdeasPage() {
             What people are <span className="em">making.</span>
           </h1>
           <p className="lead">Every project starts with a single idea. Here is where they end up.</p>
-          <FilterBar total={ideas.length} onFilter={() => undefined} />
+          <FilterBar total={ideas.length} />
         </div>
       </section>
       <div className="wrap">

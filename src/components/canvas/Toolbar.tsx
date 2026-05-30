@@ -15,7 +15,7 @@ export function Toolbar({ onAdd }: { onAdd: (type: ElementType) => void }) {
   return (
     <div className="toolbar">
       {TOOLS.map((tool) => (
-        <button type="button" key={tool.type} className="tool" onClick={() => onAdd(tool.type)}>
+        <button type="button" key={tool.type} className="tool" aria-label={`Add ${tool.label}`} onClick={() => onAdd(tool.type)}>
           {tool.label.slice(0, 1)}
           <span className="tip">{tool.label}</span>
         </button>

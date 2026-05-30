@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { elementConnections, elements } from "@/lib/db/schema"
 import { createElement, deleteElement, updateElement } from "@/lib/db/queries/elements"
@@ -50,6 +50,13 @@ export async function executeToolCall(
       return { result: { deleted: args.id }, elementMutation: { action: "deleted", id: args.id as string } }
     }
     case "connect_elements": {
+      const endpoints = await db
+        .select()
+        .from(elements)
+        .where(and(eq(elements.projectId, projectId), inArray(elements.id, [args.fromId as string, args.toId as string])))
+      if (endpoints.length !== 2 || endpoints.some((e) => e.type !== "frame")) {
+        return { result: { error: "Both endpoints must be frame elements in this project" } }
+      }
       const [connection] = await db
         .insert(elementConnections)
         .values({ projectId, fromElementId: args.fromId as string, toElementId: args.toId as string })

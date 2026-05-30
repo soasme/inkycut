@@ -1,15 +1,14 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
+import { cookies } from "next/headers"
 import { db } from "./db"
-import { accounts, sessions, users, verificationTokens } from "./db/schema"
+import { accounts, users } from "./db/schema"
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuth = NextAuth({
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
   }),
   session: { strategy: "jwt" },
   providers: [
@@ -30,3 +29,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: { signIn: "/login" },
 })
+
+export const { handlers, signIn, signOut } = nextAuth
+
+export async function auth() {
+  if (process.env.E2E_AUTH_BYPASS === "1") {
+    const value = (await cookies()).get("inkycut-e2e-user")?.value
+    if (value) {
+      const user = JSON.parse(decodeURIComponent(value)) as {
+        id: string
+        name?: string
+        email?: string
+        image?: string
+      }
+      return {
+        user: {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          image: user.image ?? null,
+        },
+        expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      }
+    }
+  }
+
+  return nextAuth.auth()
+}

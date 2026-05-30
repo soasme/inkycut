@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { CanvasTopbar } from "@/components/canvas/CanvasTopbar"
 import { ChatPanel } from "@/components/canvas/chat/ChatPanel"
 import { ExportModal } from "@/components/canvas/export/ExportModal"
@@ -32,16 +32,21 @@ export function Canvas({
   userName: string
   userImage: string
 }) {
-  const store = useCanvasStore()
+  const setElements = useCanvasStore((state) => state.setElements)
+  const setViewport = useCanvasStore((state) => state.setViewport)
+  const elements = useCanvasStore((state) => state.elements)
+  const updateElement = useCanvasStore((state) => state.updateElement)
+  const createDraftElement = useCanvasStore((state) => state.createDraftElement)
+  const addElementToStore = useCanvasStore((state) => state.addElement)
   const collaborators = usePresenceStore((state) => state.collaborators)
   const { emitCursor } = useSocket({ projectId: project.id })
   const [connections, setConnections] = useState<Array<{ fromElementId: string; toElementId: string }>>([])
   const [showExport, setShowExport] = useState(false)
 
   useEffect(() => {
-    store.setElements(initialElements)
-    store.setViewport({ x: project.viewportX, y: project.viewportY, scale: project.viewportScale })
-  }, [initialElements, project.viewportScale, project.viewportX, project.viewportY, store])
+    setElements(initialElements)
+    setViewport({ x: project.viewportX, y: project.viewportY, scale: project.viewportScale })
+  }, [initialElements, project.viewportScale, project.viewportX, project.viewportY, setElements, setViewport])
 
   useEffect(() => {
     function loadConnections() {
@@ -56,28 +61,28 @@ export function Canvas({
   }, [project.id])
 
   async function patchElement(id: string, patch: Partial<CanvasElement>) {
-    store.updateElement(id, patch)
+    updateElement(id, patch)
     await fetch(`/api/elements/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
   }
 
   async function addElement(type: ElementType) {
-    const draft = store.createDraftElement(type)
+    const draft = createDraftElement(type)
     const res = await fetch("/api/elements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...draft, projectId: project.id }),
     })
-    if (res.ok) store.addElement(await res.json())
+    if (res.ok) addElementToStore(await res.json())
   }
 
   async function noteChange(id: string, text: string) {
-    const element = store.elements.find((item) => item.id === id)
+    const element = elements.find((item) => item.id === id)
     if (!element) return
     await patchElement(id, { data: { ...(element.data as object), text } as CanvasElement["data"] })
   }
 
   async function imageUpload(id: string, url: string) {
-    const element = store.elements.find((item) => item.id === id)
+    const element = elements.find((item) => item.id === id)
     if (!element) return
     await patchElement(id, { data: { ...(element.data as object), imageUrl: url } as CanvasElement["data"] })
   }
@@ -93,8 +98,6 @@ export function Canvas({
       setConnections((items) => [...items, connection])
     }
   }
-
-  const elements = useMemo(() => store.elements, [store.elements])
 
   return (
     <div className="app">

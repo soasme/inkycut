@@ -6,7 +6,7 @@
 
 **Architecture:** Next.js 14 App Router with a custom `server.ts` that attaches Socket.io to the same HTTP port. Drizzle ORM + PostgreSQL for persistence. NextAuth v5 for Google OAuth. Canvas state lives in Zustand on the client; all mutations flow through REST API routes then broadcast via Socket.io.
 
-**Tech Stack:** Next.js 14, TypeScript, Drizzle ORM, PostgreSQL, NextAuth v5, OpenAI SDK (GPT-4o + function calling, `gpt-image-2` image generation), Socket.io 4, Zustand, Mediabunny, AWS SDK v3 (S3), Jest + React Testing Library
+**Tech Stack:** Next.js 14, TypeScript, Drizzle ORM, PostgreSQL, NextAuth v5, OpenAI SDK (GPT-4o + function calling, `gpt-image-2` image generation), Socket.io 4, Zustand, Mediabunny, AWS SDK v3 (S3), Jest + React Testing Library, Playwright
 
 **Spec:** `docs/superpowers/specs/2026-05-29-inkycut-design.md`
 
@@ -24,6 +24,7 @@
 | 6 | [phase-6-upload.md](./2026-05-29-inkycut-phase-6-upload.md) | File upload API, local/S3 storage adapter, ImageSlot component, GPT image generation |
 | 7 | [phase-7-ideas.md](./2026-05-29-inkycut-phase-7-ideas.md) | Ideas gallery page, publish-to-gallery flow |
 | 8 | [phase-8-video.md](./2026-05-29-inkycut-phase-8-video.md) | Frame connection edges, chain discovery, Mediabunny export modal |
+| 9 | [phase-9-e2e-testing.md](./2026-05-30-inkycut-phase-9-e2e-testing.md) | Playwright setup and full user-journey E2E coverage |
 
 Complete phases in order — each phase depends on the previous.
 
@@ -38,11 +39,23 @@ inkycut/
 ├── tsconfig.json                      # TypeScript config (Phase 1)
 ├── jest.config.ts                     # Jest config (Phase 1)
 ├── jest.setup.ts                      # Jest setup (Phase 1)
+├── playwright.config.ts               # Playwright config (Phase 9)
 ├── package.json                       # Dependencies (Phase 1)
 ├── drizzle.config.ts                  # Drizzle Kit config (Phase 1)
 ├── .env.local                         # Env vars (Phase 1, never committed)
 ├── public/
 │   └── uploads/                       # Local file storage dev (Phase 6)
+├── e2e/
+│   ├── public.spec.ts                 # Public landing + ideas journeys (Phase 9)
+│   ├── auth.spec.ts                   # Auth redirects and sessions (Phase 9)
+│   ├── dashboard.spec.ts              # Project management journeys (Phase 9)
+│   ├── canvas.spec.ts                 # Canvas creation/editing journeys (Phase 9)
+│   ├── chat.spec.ts                   # AI chat and generated image journeys (Phase 9)
+│   ├── publish.spec.ts                # Publish/gallery journeys (Phase 9)
+│   ├── collaboration.spec.ts          # Real-time collaboration journeys (Phase 9)
+│   ├── browser-gate.spec.ts           # Chrome desktop gate journeys (Phase 9)
+│   ├── export.spec.ts                 # Video export journeys (Phase 9)
+│   └── support/                       # E2E fixtures, auth, DB, service mocks (Phase 9)
 ├── styles/
 │   ├── inky.css                       # Copied verbatim from docs/superpowers/designs (Phase 1)
 │   └── app.css                        # Canvas styles, copied from docs/superpowers/designs (Phase 1)

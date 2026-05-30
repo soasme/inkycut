@@ -10,6 +10,10 @@ export async function proxy(req: NextRequest) {
   const isProtected =
     req.nextUrl.pathname.startsWith("/dashboard") || req.nextUrl.pathname.startsWith("/projects")
 
+  if (process.env.E2E_AUTH_BYPASS === "1" && req.cookies.has("inkycut-e2e-user")) {
+    return NextResponse.next()
+  }
+
   if (isProtected && !token) {
     return NextResponse.redirect(new URL("/login", req.nextUrl))
   }

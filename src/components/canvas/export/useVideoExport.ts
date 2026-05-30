@@ -40,9 +40,20 @@ export function useVideoExport() {
         const data = chain.frames[index].data as FrameData
         ctx.fillStyle = "#111"
         ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = "#fff"
-        ctx.font = "72px sans-serif"
-        ctx.fillText(data.slug ?? `Frame ${index + 1}`, 120, 160)
+        if (data.imageUrl) {
+          const img = new Image()
+          img.crossOrigin = "anonymous"
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve()
+            img.onerror = reject
+            img.src = data.imageUrl!
+          })
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        } else {
+          ctx.fillStyle = "#fff"
+          ctx.font = "72px sans-serif"
+          ctx.fillText(data.slug ?? `Frame ${index + 1}`, 120, 160)
+        }
         const duration = data.duration ?? 3
         await videoSource.add(timestamp, duration)
         timestamp += duration
@@ -56,7 +67,7 @@ export function useVideoExport() {
       link.href = url
       link.download = `inkycut-sequence-${chain.index + 1}.mp4`
       link.click()
-      URL.revokeObjectURL(url)
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
       setProgress(100)
       setState("done")
     } catch (error) {
