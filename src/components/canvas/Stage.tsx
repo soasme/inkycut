@@ -9,6 +9,7 @@ import { NodeWrapper } from "@/components/canvas/nodes/NodeWrapper"
 import { NoteNode } from "@/components/canvas/nodes/NoteNode"
 import { ShotlistNode } from "@/components/canvas/nodes/ShotlistNode"
 import { StoryboardNode } from "@/components/canvas/nodes/StoryboardNode"
+import type { Collaborator } from "@/hooks/usePresence"
 import type { CanvasElement } from "@/types/canvas"
 
 interface StageProps {
@@ -20,12 +21,15 @@ interface StageProps {
   onConnectFrames: (fromId: string, toId: string) => void
   connections: Array<{ fromElementId: string; toElementId: string }>
   busy: boolean
+  onViewportChange: (viewport: { x: number; y: number; scale: number }) => void
+  collaborators: Collaborator[]
 }
 
-export function Stage({ onNodeUpdate, onGenerateShotlist, onNoteChange, onImageUpload, onCursorMove, onConnectFrames, connections, busy }: StageProps) {
+export function Stage({ onNodeUpdate, onGenerateShotlist, onNoteChange, onImageUpload, onCursorMove, onConnectFrames, connections, busy, onViewportChange, collaborators }: StageProps) {
   const stageRef = useRef<HTMLDivElement>(null)
   const cursorThrottle = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dragRef = useRef<{ id: string; startX: number; startY: number; x: number; y: number } | null>(null)
+  const panRef = useRef<{ startX: number; startY: number; x: number; y: number } | null>(null)
   const [connectSource, setConnectSource] = useState<string | null>(null)
   const { elements, viewport, selectedId, draggingId, setDraggingId, setSelectedId, setViewport } = useCanvasStore()
 
@@ -47,8 +51,8 @@ export function Stage({ onNodeUpdate, onGenerateShotlist, onNoteChange, onImageU
   }
 
   function move(event: React.PointerEvent) {
-    const rect = stageRef.current?.getBoundingClientRect()
-    if (rect && !cursorThrottle.current) {
+    const rect = stageRef.current!.getBoundingClientRect()
+    if (!cursorThrottle.current) {
       cursorThrottle.current = setTimeout(() => (cursorThrottle.current = null), 33)
       onCursorMove((event.clientX - rect.left - viewport.x) / viewport.scale, (event.clientY - rect.top - viewport.y) / viewport.scale)
     }
@@ -60,21 +64,43 @@ export function Stage({ onNodeUpdate, onGenerateShotlist, onNoteChange, onImageU
     onNodeUpdate(dragRef.current.id, next)
   }
 
+  function stageMove(event: React.PointerEvent) {
+    move(event)
+    if (!panRef.current) return
+    const next = {
+      ...viewport,
+      x: panRef.current.x + event.clientX - panRef.current.startX,
+      y: panRef.current.y + event.clientY - panRef.current.startY,
+    }
+    setViewport(next)
+    onViewportChange(next)
+  }
+
   function up() {
     setDraggingId(null)
     dragRef.current = null
+    panRef.current = null
   }
 
   function wheel(event: React.WheelEvent) {
     event.preventDefault()
     const scale = Math.max(0.25, Math.min(2, viewport.scale * (event.deltaY > 0 ? 0.94 : 1.06)))
-    setViewport({ ...viewport, scale })
+    const next = { ...viewport, scale }
+    setViewport(next)
+    onViewportChange(next)
+  }
+
+  function stageDown(event: React.PointerEvent) {
+    setConnectSource(null)
+    if (event.target !== event.currentTarget) return
+    panRef.current = { startX: event.clientX, startY: event.clientY, x: viewport.x, y: viewport.y }
+    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
   }
 
   return (
-    <div ref={stageRef} data-testid="canvas-stage" className="stage" onPointerMove={move} onPointerUp={up} onWheel={wheel} onPointerDown={() => setConnectSource(null)}>
+    <div ref={stageRef} data-testid="canvas-stage" className="stage" onPointerMove={stageMove} onPointerUp={up} onWheel={wheel} onPointerDown={stageDown}>
       <div className="stage-dots" />
-      <div className="canvas-layer" style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})` }}>
+      <div data-testid="canvas-layer" className="canvas-layer" style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})` }}>
         <svg style={{ position: "absolute", inset: 0, width: 1, height: 1, overflow: "visible", pointerEvents: "none" }}>
           {connections.map((connection) => {
             const from = elements.find((element) => element.id === connection.fromElementId)
@@ -99,6 +125,18 @@ export function Stage({ onNodeUpdate, onGenerateShotlist, onNoteChange, onImageU
         ))}
       </div>
       <div className="hint">{connectSource ? "shift+click another frame to connect" : "drag nodes · scroll to zoom · shift+click frames to connect"}</div>
+      {collaborators.flatMap((collaborator) =>
+        collaborator.cursor ? (
+          <div
+            key={collaborator.userId}
+            data-testid="collaborator-cursor"
+            className="collaborator-cursor"
+            style={{ left: viewport.x + collaborator.cursor.x * viewport.scale, top: viewport.y + collaborator.cursor.y * viewport.scale }}
+          >
+            {collaborator.name || collaborator.userId}
+          </div>
+        ) : [],
+      )}
     </div>
   )
 }

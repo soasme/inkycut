@@ -23,21 +23,23 @@ export const ChatPanel = forwardRef<{ focus: () => void }, { projectId: string; 
   const [messages, setMessages] = useState<Msg[]>([])
   const [draft, setDraft] = useState("")
   const [thinking, setThinking] = useState(false)
+  const [messagesLoaded, setMessagesLoaded] = useState(false)
 
-  useImperativeHandle(ref, () => ({ focus: () => taRef.current?.focus() }))
+  useImperativeHandle(ref, () => ({ focus: () => taRef.current!.focus() }))
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight
   }, [messages, thinking])
   useEffect(() => {
     if (!conversationId) return
     fetch(`/api/messages?conversationId=${conversationId}`)
       .then((res) => (res.ok ? res.json() : []))
-      .then(setMessages)
-      .catch(() => setMessages([]))
+      .then((loaded) => setMessages((items) => (items.length ? items : loaded)))
+      .catch(() => undefined)
+      .finally(() => setMessagesLoaded(true))
   }, [conversationId])
 
   async function send() {
-    if (!draft.trim() || thinking || !conversationId) return
+    if (!draft.trim() || thinking || !messagesLoaded || !conversationId) return
     const text = draft.trim()
     const agentMsgId = `${Date.now()}-agent`
     setDraft("")
@@ -51,24 +53,31 @@ export const ChatPanel = forwardRef<{ focus: () => void }, { projectId: string; 
     }
     const decoder = new TextDecoder()
     let agentText = ""
+    let buffered = ""
+    function processEvent(line: string) {
+      if (!line.startsWith("data: ")) return
+      const event = JSON.parse(line.slice(6))
+      if (event.type === "text") {
+        agentText += event.content
+        setMessages((items) => items.map((item) => (item.id === agentMsgId ? { ...item, content: agentText } : item)))
+      }
+      if (event.type === "mutation") {
+        const { action, element, id } = event.mutation
+        if (action === "created" && element) store.addElement(element as CanvasElement)
+        if (action === "updated" && element) store.updateElement((element as CanvasElement).id, element as Partial<CanvasElement>)
+        if (action === "deleted" && id) store.removeElement(id)
+        if (action === "connected") window.dispatchEvent(new Event("inkycut:connections-changed"))
+      }
+    }
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      for (const line of decoder.decode(value).split("\n\n").filter(Boolean)) {
-        if (!line.startsWith("data: ")) continue
-        const event = JSON.parse(line.slice(6))
-        if (event.type === "text") {
-          agentText += event.content
-          setMessages((items) => items.map((item) => (item.id === agentMsgId ? { ...item, content: agentText } : item)))
-        }
-        if (event.type === "mutation") {
-          const { action, element, id } = event.mutation
-          if (action === "created" && element) store.addElement(element as CanvasElement)
-          if (action === "updated" && element) store.updateElement((element as CanvasElement).id, element as Partial<CanvasElement>)
-          if (action === "deleted" && id) store.removeElement(id)
-        }
-      }
+      buffered += decoder.decode(value, { stream: true })
+      const events = buffered.split("\n\n")
+      buffered = events.pop()!
+      events.filter(Boolean).forEach(processEvent)
     }
+    if (buffered) processEvent(buffered)
     setThinking(false)
   }
 
@@ -84,7 +93,7 @@ export const ChatPanel = forwardRef<{ focus: () => void }, { projectId: string; 
         ))}
         {thinking && <TypingIndicator />}
       </div>
-      <Composer draft={draft} setDraft={setDraft} onSend={send} thinking={thinking} taRef={taRef} />
+      <Composer draft={draft} setDraft={setDraft} onSend={send} thinking={thinking || !messagesLoaded} taRef={taRef} />
     </aside>
   )
 })

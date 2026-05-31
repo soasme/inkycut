@@ -19,6 +19,28 @@ function readBody(req: IncomingMessage) {
   })
 }
 
+function sendChatStream(res: ServerResponse, deltas: Array<Record<string, unknown>>) {
+  res.writeHead(200, { "content-type": "text/event-stream" })
+  for (const delta of deltas) {
+    res.write(`data: ${JSON.stringify({ id: "chatcmpl-e2e", object: "chat.completion.chunk", choices: [{ index: 0, ...delta }] })}\n\n`)
+  }
+  res.write("data: [DONE]\n\n")
+  res.end()
+}
+
+function streamToolCall(res: ServerResponse, name: string, args: Record<string, unknown>) {
+  sendChatStream(res, [
+    { delta: { role: "assistant", tool_calls: [{ index: 0, id: `call-${name}`, type: "function", function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: null },
+    { delta: {}, finish_reason: "tool_calls" },
+  ])
+}
+
+function canvasElementIds(messages: Array<{ role: string; content?: string }>, type?: string) {
+  const systemPrompt = messages.find((message) => message.role === "system")?.content ?? ""
+  const pattern = type ? new RegExp(`- ([0-9a-f-]{36}) \\[${type}\\]`, "g") : /- ([0-9a-f-]{36}) \[[^\]]+\]/g
+  return [...systemPrompt.matchAll(pattern)].map((match) => match[1])
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", baseURL)
 
@@ -84,13 +106,27 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/openai/v1/chat/completions") {
     const body = JSON.parse(await readBody(req))
     if (body.stream) {
-      const chunk1 = { id: "chatcmpl-e2e", object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: "Stubbed E2E response." }, finish_reason: null }] }
-      const chunk2 = { id: "chatcmpl-e2e", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }
-      res.writeHead(200, { "content-type": "text/event-stream" })
-      res.write(`data: ${JSON.stringify(chunk1)}\n\n`)
-      res.write(`data: ${JSON.stringify(chunk2)}\n\n`)
-      res.write("data: [DONE]\n\n")
-      res.end()
+      const messages = body.messages as Array<{ role: string; content?: string }>
+      const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content ?? ""
+      const hasToolResult = messages.some((message) => message.role === "tool")
+      const frameIds = canvasElementIds(messages, "frame")
+      const noteIds = canvasElementIds(messages, "note")
+
+      if (hasToolResult) {
+        sendChatStream(res, [{ delta: { role: "assistant", content: "Stubbed tool call complete." }, finish_reason: null }, { delta: {}, finish_reason: "stop" }])
+      } else if (lastUserMessage === "E2E create frame") {
+        streamToolCall(res, "create_element", { type: "frame", x: 280, y: 180, w: 360, h: 225, data: { slug: "AI FRAME", meta: "16:9" } })
+      } else if (lastUserMessage === "E2E update node" && noteIds[0]) {
+        streamToolCall(res, "update_element", { id: noteIds[0], patch: { data: { text: "Updated by AI" } } })
+      } else if (lastUserMessage === "E2E delete node" && noteIds[0]) {
+        streamToolCall(res, "delete_element", { id: noteIds[0] })
+      } else if (lastUserMessage === "E2E connect frames" && frameIds.length >= 2) {
+        streamToolCall(res, "connect_elements", { fromId: frameIds[0], toId: frameIds[1] })
+      } else if (lastUserMessage === "E2E generate image" && frameIds[0]) {
+        streamToolCall(res, "generate_image", { elementId: frameIds[0], prompt: "A cinematic rooftop chase at dusk" })
+      } else {
+        sendChatStream(res, [{ delta: { role: "assistant", content: "Stubbed E2E response." }, finish_reason: null }, { delta: {}, finish_reason: "stop" }])
+      }
     } else {
       json(res, 200, {
         id: "chatcmpl-e2e",

@@ -16,7 +16,7 @@ export function StoryboardNode({ element, onGenerateShotlist, busy }: { element:
         </div>
         <div className="sb-foot">
           <span className="lbl">sequence sketch</span>
-          <button type="button" className="btn-mini" disabled={busy} onClick={() => onGenerateShotlist(element)}>
+          <button type="button" data-no-drag className="btn-mini" disabled={busy} onClick={() => onGenerateShotlist(element)}>
             Shot list
           </button>
         </div>

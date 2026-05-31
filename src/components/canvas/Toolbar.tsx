@@ -11,7 +11,7 @@ const TOOLS: Array<{ type: ElementType; label: string }> = [
   { type: "note", label: "Note" },
 ]
 
-export function Toolbar({ onAdd }: { onAdd: (type: ElementType) => void }) {
+export function Toolbar({ onAdd, onFocusChat }: { onAdd: (type: ElementType) => void; onFocusChat: () => void }) {
   return (
     <div className="toolbar">
       {TOOLS.map((tool) => (
@@ -20,6 +20,10 @@ export function Toolbar({ onAdd }: { onAdd: (type: ElementType) => void }) {
           <span className="tip">{tool.label}</span>
         </button>
       ))}
+      <button type="button" className="tool" aria-label="Ask a specialist" onClick={onFocusChat}>
+        /
+        <span className="tip">Ask a specialist</span>
+      </button>
     </div>
   )
 }

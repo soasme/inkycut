@@ -28,7 +28,7 @@ export function FrameNode({ element, onImageUpload }: { element: CanvasElement; 
         {data.slug ?? "FRAME"}
       </span>
       <span className="fmeta">{data.meta ?? "16:9"}</span>
-      <button type="button" data-no-drag className="image-upload-btn" onClick={() => inputRef.current?.click()}>
+      <button type="button" data-no-drag className="image-upload-btn" onClick={() => inputRef.current!.click()}>
         image
       </button>
       <input

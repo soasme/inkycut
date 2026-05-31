@@ -43,6 +43,8 @@ npm run test:e2e
 | `npm run test:e2e:ui` | Open Playwright UI mode |
 | `npm run e2e:stub` | Start only the external-integration stub server |
 
+The enforced 100% gate includes the reusable canvas interaction layer and its backend helpers: stores, stage pan/zoom/drag behavior, toolbar, topbar, chat primitives, node renderers, frame uploads, export modal, browser-side video export, AI tool dispatch, export-chain discovery, generated-image persistence, OpenAI canvas configuration, and local/S3 storage adapters.
+
 Pass Playwright options after `--`:
 
 ```bash
@@ -97,7 +99,7 @@ Current routes:
 | `POST /google/oauth2/v4/token` | Google-style token exchange |
 | `GET /google/oauth2/v3/userinfo` | Deterministic Google-style profile |
 | `GET /google/oauth2/v3/certs` | Google-style JWKS response |
-| `POST /openai/v1/chat/completions` | Deterministic OpenAI-style chat response |
+| `POST /openai/v1/chat/completions` | Deterministic OpenAI-style chat response and prompt-driven canvas tool calls |
 | `POST /openai/v1/images/generations` | Deterministic OpenAI-style generated image response |
 
 To add another external system:
@@ -134,7 +136,7 @@ postgresql://postgres:postgres@localhost:55432/inkycut
 Fixture helpers live in `e2e/support/db.ts`. They:
 
 - create uniquely named users and projects
-- seed elements and gallery ideas when needed
+- seed elements, frame connections, and gallery ideas when needed
 - delete the test user after each journey
 - rely on database cascades to remove owned projects, elements, conversations, and ideas
 
@@ -158,7 +160,10 @@ Canvas-editing tests skip the mobile project because the product intentionally b
 | `e2e/public.spec.ts` | Landing page, ideas navigation, login CTA, published gallery fixture |
 | `e2e/auth.spec.ts` | Protected-route redirect, authenticated login redirect |
 | `e2e/dashboard.spec.ts` | Create/open/delete project, publish project to gallery |
-| `e2e/canvas.spec.ts` | Canvas boot, all node types, note persistence, empty export state, stubbed chat, stubbed upload, mobile gate |
+| `e2e/canvas.spec.ts` | Canvas boot, all node types, AI-composer focus actions, project-name editing, note and node persistence, board pan, wheel zoom, empty export state, stubbed upload, mobile gate |
+| `e2e/chat.spec.ts` | Real `/api/chat` streaming through the OpenAI stub, AI create/update/delete/connect tool calls, generated-image persistence, AI-connected MP4 export |
+| `e2e/export.spec.ts` | Connected frame-chain selection, browser-side MP4 render, download handoff |
+| `e2e/collaboration.spec.ts` | Two owner sessions, presence avatar, live cursor, real-time create/update/delete synchronization |
 
 ## Artifacts
 

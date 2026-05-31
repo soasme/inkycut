@@ -33,6 +33,6 @@ export function useSocket({ projectId }: { projectId: string }) {
   }, [addCollaborator, addElement, projectId, removeCollaborator, removeElement, resetPresence, updateCursor, updateElement])
 
   return {
-    emitCursor: (x: number, y: number) => socketRef.current?.emit("viewport:cursor", { x, y }),
+    emitCursor: (x: number, y: number) => socketRef.current!.emit("viewport:cursor", { x, y }),
   }
 }

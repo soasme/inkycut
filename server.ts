@@ -1,12 +1,14 @@
 import { createServer } from "http"
+import { loadEnvConfig } from "@next/env"
 import next from "next"
-import { initSocketServer } from "./src/lib/socket"
 
+loadEnvConfig(process.cwd())
 const dev = process.env.NODE_ENV !== "production"
 const app = next({ dev })
 const handle = app.getRequestHandler()
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
+  const { initSocketServer } = await import("./src/lib/socket")
   const httpServer = createServer((req, res) => {
     handle(req, res)
   })

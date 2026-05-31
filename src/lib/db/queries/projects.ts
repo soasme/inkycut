@@ -33,6 +33,15 @@ export async function updateProjectViewport(
     .where(eq(projects.id, projectId))
 }
 
+export async function updateProjectName(projectId: string, userId: string, name: string) {
+  const [project] = await db
+    .update(projects)
+    .set({ name, updatedAt: new Date() })
+    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+    .returning()
+  return project ?? null
+}
+
 export async function getProjectWithFirstElement(userId: string) {
   const userProjects = await getProjectsByUser(userId)
   return Promise.all(

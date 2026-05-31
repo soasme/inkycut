@@ -30,6 +30,12 @@ test("user creates canvas nodes and edits a note", async ({ page, isMobile }) =>
     await expect(page.getByTestId("canvas-node-shotlist")).toBeVisible()
     await expect(page.getByTestId("canvas-node-doc")).toBeVisible()
 
+    await page.getByRole("button", { name: "Ask a specialist" }).click()
+    await expect(page.getByLabel("Chat prompt")).toBeFocused()
+    await page.getByTestId("canvas-node-storyboard").locator(".nhead").click()
+    await page.getByTestId("canvas-node-storyboard").getByRole("button", { name: "Shot list" }).click()
+    await expect(page.getByLabel("Chat prompt")).toBeFocused()
+
     const note = page.getByLabel("Note text").first()
     const notePatch = page.waitForResponse((response) => {
       const request = response.request()
@@ -43,8 +49,66 @@ test("user creates canvas nodes and edits a note", async ({ page, isMobile }) =>
     await expect((await notePatch).status()).toBe(200)
     await expect(note).toHaveValue("Updated E2E note")
 
+    const projectName = e2eName("Renamed Canvas")
+    const projectPatch = page.waitForResponse((response) => {
+      const request = response.request()
+      return request.method() === "PATCH" && response.url().includes(`/api/projects/${project.id}`) && request.postData()?.includes(projectName) === true
+    })
+    await page.getByLabel("Project name").fill(projectName)
+    await page.getByLabel("Project name").blur()
+    await expect((await projectPatch).status()).toBe(200)
+
+    const draggableNote = page.getByTestId("canvas-node-note").first()
+    const originalNoteBox = await draggableNote.boundingBox()
+    if (!originalNoteBox) throw new Error("Note box missing")
+    const nodePatch = page.waitForResponse((response) => {
+      const request = response.request()
+      return request.method() === "PATCH" && response.url().includes("/api/elements/") && request.postData()?.includes('"x"') === true
+    })
+    await page.mouse.move(originalNoteBox.x + 20, originalNoteBox.y + 20)
+    await page.mouse.down()
+    await page.mouse.move(originalNoteBox.x + 180, originalNoteBox.y + 140)
+    await page.mouse.up()
+    await expect((await nodePatch).status()).toBe(200)
+
+    const layer = page.getByTestId("canvas-layer")
+    const originalTransform = await layer.evaluate((element) => (element as HTMLElement).style.transform)
+    const viewportPatch = page.waitForResponse((response) => {
+      const request = response.request()
+      return request.method() === "PATCH" && response.url().includes(`/api/projects/${project.id}`) && request.postData()?.includes("viewport") === true
+    })
+    await page.getByTestId("canvas-stage").hover({ position: { x: 40, y: 40 } })
+    await page.mouse.wheel(0, -100)
+    await expect((await viewportPatch).status()).toBe(200)
+    expect(await layer.evaluate((element) => (element as HTMLElement).style.transform)).not.toBe(originalTransform)
+
+    const zoomedTransform = await layer.evaluate((element) => (element as HTMLElement).style.transform)
+    const stageBox = await page.getByTestId("canvas-stage").boundingBox()
+    if (!stageBox) throw new Error("Stage box missing")
+    const panPatch = page.waitForResponse((response) => {
+      const request = response.request()
+      return request.method() === "PATCH" && response.url().includes(`/api/projects/${project.id}`) && request.postData()?.includes("viewport") === true
+    })
+    await page.mouse.move(stageBox.x + 40, stageBox.y + 40)
+    await page.mouse.down()
+    await page.mouse.move(stageBox.x + 140, stageBox.y + 120)
+    await page.mouse.up()
+    await expect((await panPatch).status()).toBe(200)
+    expect(await layer.evaluate((element) => (element as HTMLElement).style.transform)).not.toBe(zoomedTransform)
+
+    const buttonZoomPatch = page.waitForResponse((response) => {
+      const request = response.request()
+      return request.method() === "PATCH" && response.url().includes(`/api/projects/${project.id}`) && request.postData()?.includes("viewport") === true
+    })
+    await page.getByRole("button", { name: "+" }).click()
+    await expect((await buttonZoomPatch).status()).toBe(200)
+
     await page.reload()
+    await expect(page.getByLabel("Project name")).toHaveValue(projectName)
     await expect(page.getByLabel("Note text").first()).toHaveValue("Updated E2E note")
+    const movedNoteBox = await page.getByTestId("canvas-node-note").first().boundingBox()
+    expect(movedNoteBox?.x).not.toBe(originalNoteBox.x)
+    expect(await page.getByTestId("canvas-layer").evaluate((element) => (element as HTMLElement).style.transform)).not.toBe(originalTransform)
 
     await page.getByRole("button", { name: "Export video" }).click()
     await expect(page.getByText("No connected frame sequences found.")).toBeVisible()

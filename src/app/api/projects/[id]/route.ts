@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { deleteProject, updateProjectViewport } from "@/lib/db/queries/projects"
+import { deleteProject, getProjectById, updateProjectName, updateProjectViewport } from "@/lib/db/queries/projects"
 
 export const runtime = "nodejs"
 
@@ -23,6 +23,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const body = await req.json()
+  const project = await getProjectById(id, session.user.id)
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (typeof body.name === "string") {
+    const name = body.name.trim()
+    if (!name) return NextResponse.json({ error: "Project name required" }, { status: 400 })
+    await updateProjectName(id, session.user.id, name)
+  }
   if (body.viewport) {
     await updateProjectViewport(id, body.viewport)
   }

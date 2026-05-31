@@ -23,7 +23,7 @@ function timeAgo(date: Date | string) {
 export function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: string) => void }) {
   const [confirming, setConfirming] = useState(false)
   const [showPublish, setShowPublish] = useState(false)
-  const [isPublished, setIsPublished] = useState(false)
+  const [idea, setIdea] = useState<{ title: string; description: string | null; genre: string | null } | null>(null)
   const data = (project.coverElement?.data ?? {}) as Record<string, unknown>
   const hue = (data.hue as "slate" | "amber" | "rain" | "crimson" | "forest" | undefined) ?? "slate"
 
@@ -38,7 +38,15 @@ export function ProjectCard({ project, onDelete }: { project: Project; onDelete:
           <span>{timeAgo(project.updatedAt)}</span>
         </Link>
       </div>
-      <button aria-label="Publish project" className="project-publish" onClick={() => setShowPublish(true)}>
+      <button
+        aria-label="Publish project"
+        className="project-publish"
+        onClick={async () => {
+          const res = await fetch(`/api/ideas/${project.id}`)
+          setIdea(res.ok ? await res.json() : null)
+          setShowPublish(true)
+        }}
+      >
         Publish
       </button>
       <button aria-label="Delete project" className="project-delete" onClick={() => setConfirming(true)}>
@@ -55,15 +63,15 @@ export function ProjectCard({ project, onDelete }: { project: Project; onDelete:
         <PublishModal
           projectId={project.id}
           projectName={project.name}
-          isPublished={isPublished}
+          idea={idea}
           onClose={() => setShowPublish(false)}
           onPublish={async (data) => {
-            await fetch(`/api/ideas/${project.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
-            setIsPublished(true)
+            const res = await fetch(`/api/ideas/${project.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+            if (res.ok) setIdea(await res.json())
           }}
           onUnpublish={async () => {
             await fetch(`/api/ideas/${project.id}`, { method: "DELETE" })
-            setIsPublished(false)
+            setIdea(null)
           }}
         />
       )}

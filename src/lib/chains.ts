@@ -26,8 +26,7 @@ export function discoverChains(elements: CanvasElement[], connections: Connectio
 
     while (current && !visited.has(current)) {
       visited.add(current)
-      const element = frameById.get(current)
-      if (element) chain.push(element)
+      chain.push(frameById.get(current)!)
       current = outgoing.get(current)?.[0]
     }
 

@@ -24,4 +24,12 @@ describe("useAutosave", () => {
     expect(saveFn).toHaveBeenCalledTimes(1)
     expect(saveFn).toHaveBeenCalledWith({ x: 2 })
   })
+
+  it("does not save a null payload", () => {
+    const saveFn = jest.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() => useAutosave(saveFn, 800))
+    act(() => result.current.trigger(null))
+    act(() => jest.advanceTimersByTime(800))
+    expect(saveFn).not.toHaveBeenCalled()
+  })
 })

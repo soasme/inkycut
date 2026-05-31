@@ -22,6 +22,7 @@ export function NodeWrapper({
     <div
       className={classes}
       data-testid={`canvas-node-${element.type}`}
+      data-element-id={element.id}
       style={{ left: element.x, top: element.y, width: element.w, height: element.h ?? undefined }}
       onPointerDown={onPointerDown}
     >

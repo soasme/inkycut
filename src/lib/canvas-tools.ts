@@ -61,7 +61,7 @@ export async function executeToolCall(
         .insert(elementConnections)
         .values({ projectId, fromElementId: args.fromId as string, toElementId: args.toId as string })
         .returning()
-      return { result: connection }
+      return { result: connection, elementMutation: { action: "connected" } }
     }
     case "list_elements": {
       const rows = await db.select().from(elements).where(eq(elements.projectId, projectId))

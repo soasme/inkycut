@@ -7,21 +7,28 @@ export function CanvasTopbar({
   projectName,
   collaborators,
   onExport,
+  onProjectNameChange,
 }: {
   projectName: string
   collaborators: Collaborator[]
   onExport: () => void
+  onProjectNameChange: (name: string) => void
 }) {
   return (
     <header className="topbar">
       <div className="tb-group">
         <LogoMark size={28} />
-        <span className="tb-name">{projectName}</span>
+        <input
+          aria-label="Project name"
+          className="tb-name"
+          defaultValue={projectName}
+          onBlur={(event) => onProjectNameChange(event.target.value)}
+        />
       </div>
       <div className="tb-right">
         <div className="avatars">
           {collaborators.slice(0, 4).map((collaborator) => (
-            <span key={collaborator.userId} className="av" style={{ background: "var(--accent)" }}>
+            <span key={collaborator.userId} data-testid="collaborator-avatar" className="av" style={{ background: "var(--accent)" }}>
               {(collaborator.name || collaborator.userId).slice(0, 2).toUpperCase()}
             </span>
           ))}

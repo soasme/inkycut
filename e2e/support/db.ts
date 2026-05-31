@@ -64,6 +64,13 @@ export async function insertElement(projectId: string, type: string, data: Recor
   return result.rows[0]
 }
 
+export async function insertConnection(projectId: string, fromElementId: string, toElementId: string) {
+  await pool.query(
+    `insert into element_connections (project_id, from_element_id, to_element_id) values ($1, $2, $3)`,
+    [projectId, fromElementId, toElementId],
+  )
+}
+
 export async function publishIdea(input: {
   projectId: string
   userId: string

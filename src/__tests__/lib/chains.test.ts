@@ -32,6 +32,19 @@ describe("discoverChains", () => {
     expect(chains).toHaveLength(2)
   })
 
+  it("uses the first outgoing connection for a fork", () => {
+    const elements = [
+      { id: "a", type: "frame" },
+      { id: "b", type: "frame" },
+      { id: "c", type: "frame" },
+    ]
+    const chains = discoverChains(elements as never, [
+      { fromElementId: "a", toElementId: "b" },
+      { fromElementId: "a", toElementId: "c" },
+    ])
+    expect(chains[0].map((element) => element.id)).toEqual(["a", "b"])
+  })
+
   it("ignores non-frame endpoints", () => {
     const elements = [
       { id: "a", type: "frame" },
